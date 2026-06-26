@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento de Internación — Trasplante Hepático</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#f1efe8;color:#1a1a1a;}
+.app{max-width:900px;margin:0 auto;background:#fff;min-height:100vh;}
+.hdr{padding:.8rem 1rem;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;background:#fff;position:sticky;top:0;z-index:10;}
+.hdr h1{font-size:13px;font-weight:700;}
+.hdr p{font-size:10px;color:#666;margin-top:1px;}
+.sdot{width:8px;height:8px;border-radius:50%;background:#27a;display:inline-block;margin-right:4px;}
+.slbl{font-size:11px;color:#666;}
+.tabs{display:flex;border-bottom:1px solid #e0e0e0;background:#fff;}
+.tab{flex:1;padding:.7rem;font-size:12px;text-align:center;cursor:pointer;color:#888;border:none;background:transparent;font-family:inherit;font-weight:500;}
+.tab.on{color:#185FA5;border-bottom:2px solid #185FA5;}
+.content{padding:.9rem 1rem;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.stat{background:#f8f7f5;border-radius:8px;padding:.7rem;border:1px solid #e8e8e8;text-align:center;}
+.stat-n{font-size:22px;font-weight:700;}
+.stat-l{font-size:10px;color:#888;margin-top:2px;}
+.loc-row{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;}
+.loc{flex:1;min-width:100px;border-radius:8px;padding:.6rem .8rem;border:1px solid #e0e0e0;}
+.loc-uci{background:#FCEBEB;border-color:#F7C1C1;}
+.loc-cim{background:#EAF3DE;border-color:#C0DD97;}
+.loc-otro{background:#f8f7f5;}
+.loc-n{font-size:18px;font-weight:700;}
+.loc-uci .loc-n{color:#791F1F;}
+.loc-cim .loc-n{color:#27500A;}
+.loc-l{font-size:11px;font-weight:700;margin-top:1px;}
+.loc-uci .loc-l{color:#791F1F;}
+.loc-cim .loc-l{color:#27500A;}
+.loc-l2{font-size:10px;color:#888;margin-top:2px;}
+.loc-detalle{background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 12px;margin-bottom:1rem;}
+.loc-sub-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:13px;}
+.loc-sub-row:last-child{border-bottom:none;}
+.loc-sub-n{font-weight:700;color:#185FA5;}
+
+/* CARDS */
+.card{border-radius:10px;border:1px solid #e0e0e0;background:#fff;margin-bottom:8px;cursor:pointer;overflow:hidden;}
+.card:hover{border-color:#aaa;}
+.card-top{display:flex;gap:8px;padding:10px 11px 8px;}
+.strip{width:4px;border-radius:2px;min-height:50px;flex-shrink:0;}
+.s-pre{background:#185FA5;}.s-post{background:#27500A;}.s-retx{background:#3C3489;}
+.cname{font-weight:700;font-size:14px;}
+.csub{font-size:11px;color:#666;margin-top:2px;line-height:1.4;}
+.cbrow{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+.cb{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+.cb-pre{background:#E6F1FB;color:#185FA5;}
+.cb-post{background:#EAF3DE;color:#27500A;}
+.cb-retx{background:#EEEDFE;color:#3C3489;}
+.cb-gray{background:#f0f0f0;color:#666;}
+.cb-ok{background:#EAF3DE;color:#27500A;}
+.cb-mal{background:#FCEBEB;color:#791F1F;}
+.card-labs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:6px 11px;background:#f8f7f5;border-top:1px solid #e8e8e8;}
+.lbl{font-size:10px;color:#888;}.lbv{font-size:12px;font-weight:700;}
+.card-dias{padding:5px 11px;border-top:1px solid #e8e8e8;background:#f8f7f5;font-size:10px;color:#666;display:flex;gap:10px;flex-wrap:wrap;}
+.card-dias strong{color:#185FA5;}
+.card-pend{padding:5px 11px;border-top:1px solid #FAC775;background:#FAEEDA;font-size:10px;color:#854F0B;font-weight:600;}
+.card-alert{padding:5px 11px;border-top:1px solid #F7C1C1;background:#FCEBEB;font-size:10px;color:#791F1F;font-weight:600;}
+.card-section{padding:6px 11px;border-top:1px solid #e8e8e8;}
+.card-sec-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
+.card-sec-item{font-size:11.5px;line-height:1.5;color:#333;}
+.card-dias-row:hover{color:#185FA5;}
+.card-dias-detalle{border-top:1px dashed #ddd;margin-top:3px;}
+.card-problemas{background:#F5F0FF;}
+.card-problemas .card-sec-lbl{color:#7B3F9E;}
+.card-planes{background:#EAF7EC;}
+.card-planes .card-sec-lbl{color:#1A7A3C;}
+.card-alta{border-top:2px solid;}
+.card-alta .card-sec-lbl{font-weight:700;}
+.alta-si{background:#EAF3DE;border-color:#27500A;}
+.alta-si .card-sec-lbl{color:#27500A;}
+.alta-no{background:#FCEBEB;border-color:#791F1F;}
+.alta-no .card-sec-lbl{color:#791F1F;}
+.alta-organo{background:#EEEDFE;border-color:#3C3489;}
+.alta-organo .card-sec-lbl{color:#3C3489;}
+.add-btn{width:100%;padding:.8rem;border:1px dashed #ccc;border-radius:10px;background:transparent;color:#888;font-size:13px;font-family:inherit;cursor:pointer;margin-top:4px;}
+
+/* FORM */
+.sec-box{background:#f8f7f5;border-radius:10px;padding:.8rem;border:1px solid #e8e8e8;margin-bottom:.8rem;}
+.sec-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:8px;}
+.sec-lbl.green{color:#27500A;background:#EAF3DE;padding:3px 9px;border-radius:20px;display:inline-block;}
+.sec-lbl.blue{color:#185FA5;background:#E6F1FB;padding:3px 9px;border-radius:20px;display:inline-block;}
+.sec-lbl.purple{color:#3C3489;background:#EEEDFE;padding:3px 9px;border-radius:20px;display:inline-block;}
+.sec-lbl.red{color:#791F1F;background:#FCEBEB;padding:3px 9px;border-radius:20px;display:inline-block;}
+.sec-lbl.problemas-color{color:#7B3F9E;background:#F5F0FF;padding:3px 9px;border-radius:20px;display:inline-block;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
+.g4{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+@media(min-width:600px){.g4{grid-template-columns:1fr 1fr 1fr 1fr;}}
+.gc2{grid-column:span 2;}.gca{grid-column:1/-1;}
+.fld{display:flex;flex-direction:column;gap:3px;}
+.fld label{font-size:11px;color:#666;font-weight:500;}
+.fld input,.fld select,.fld textarea{font-size:14px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a1a;font-family:inherit;width:100%;}
+.fld textarea{resize:vertical;min-height:60px;line-height:1.5;}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:#185FA5;}
+.ar{display:flex;gap:4px;}.ar input{flex:2;}.ar select{flex:1;min-width:0;}
+.ctx-box{border-radius:7px;padding:7px 10px;font-size:12px;margin-bottom:8px;line-height:1.5;}
+.ctx-pre{background:#E6F1FB;color:#185FA5;}
+.ctx-post{background:#EAF3DE;color:#27500A;}
+.ctx-retx{background:#EEEDFE;color:#3C3489;}
+.eval-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+@media(min-width:500px){.eval-grid{grid-template-columns:repeat(3,1fr);}}
+.eval-item label{font-size:11px;color:#666;}
+.eval-item select{font-size:13px;padding:6px 8px;border:1px solid #ddd;border-radius:7px;background:#fff;width:100%;}
+.eval-item select.pend{border-color:#FAC775;background:#FAEEDA;color:#854F0B;}
+.eval-item select.apto{border-color:#C0DD97;background:#EAF3DE;color:#27500A;}
+.tw{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border:1px solid #ddd;border-radius:7px;background:#fff;min-height:40px;align-items:center;}
+.tw input{border:none;outline:none;font-size:13px;background:transparent;min-width:80px;flex:1;padding:0;}
+.tg{display:inline-flex;align-items:center;gap:3px;border-radius:20px;padding:3px 8px;font-size:11px;}
+.img-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;font-size:12px;border:1px solid;}
+.img-normal{background:#EAF3DE;border-color:#C0DD97;color:#27500A;}
+.img-pato{background:#FCEBEB;border-color:#F7C1C1;color:#791F1F;}
+.mov-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;font-size:12px;border:1px solid #ddd;background:#fff;}
+.t-a{background:#E6F1FB;color:#0C447C;}.t-i{background:#FAEEDA;color:#633806;}.t-t{background:#EAF3DE;color:#27500A;}.t-c{background:#EEEDFE;color:#3C3489;}
+.tx{cursor:pointer;opacity:.5;font-size:13px;padding:0 2px;}.tx:hover{opacity:1;}
+.lab-hist{background:#f0f0f0;border-radius:7px;padding:7px 10px;font-size:11px;margin-top:6px;}
+.lhr{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e0e0e0;font-size:11px;}
+.lhr:last-child{border-bottom:none;}
+.peld-row{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;}
+.peld-card{text-align:center;background:#E6F1FB;border-radius:8px;padding:8px 14px;border:1px solid #B5D4F4;}
+.peld-n{font-size:22px;font-weight:700;color:#185FA5;}
+.peld-l{font-size:10px;color:#666;margin-top:1px;}
+.fk-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+.fk-table th{background:#f0f0f0;padding:5px 7px;border:1px solid #e0e0e0;font-size:10px;color:#666;}
+.fk-table td{padding:5px 7px;border:1px solid #e0e0e0;text-align:center;}
+.sbox{background:#f8f7f5;border-radius:7px;padding:8px 11px;font-size:12px;color:#666;border:1px solid #e0e0e0;margin-top:8px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.b-ok{background:#EAF3DE;color:#27500A;}.b-med{background:#FAEEDA;color:#854F0B;}.b-mal{background:#FCEBEB;color:#791F1F;}
+
+/* BUTTONS */
+.btn-pri{background:#185FA5;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;}
+.btn-pri:active{opacity:.85;}
+.btn-sec{background:#fff;color:#1a1a1a;border:1px solid #ccc;border-radius:8px;padding:10px 15px;font-size:14px;font-family:inherit;cursor:pointer;}
+.btn-sec:hover{background:#f5f5f5;}
+.btn-alta{background:#27500A;color:#fff;border:none;border-radius:8px;padding:10px 15px;font-size:14px;font-family:inherit;cursor:pointer;margin-left:auto;}
+.btn-del{background:#fff;color:#791F1F;border:1px solid #F7C1C1;border-radius:8px;padding:10px 15px;font-size:14px;font-family:inherit;cursor:pointer;}
+.form-actions{display:flex;gap:8px;padding-bottom:1.5rem;flex-wrap:wrap;margin-top:.5rem;}
+
+/* DETAIL */
+.det-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.8rem;gap:8px;}
+.det-name{font-size:17px;font-weight:700;}
+.det-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
+.det-back{background:#fff;border:1px solid #ccc;border-radius:8px;padding:7px 12px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.det-sec{margin-bottom:.8rem;}
+.det-slbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:7px;}
+.det-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:13px;}
+.det-row:last-child{border-bottom:none;}
+.det-l{color:#888;min-width:130px;flex-shrink:0;font-size:12px;}
+.det-v{flex:1;line-height:1.5;}
+.det-v.pend{color:#854F0B;font-weight:600;}
+.labgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:5px;}
+.labcard{background:#f8f7f5;border-radius:7px;padding:7px 9px;border:1px solid #e8e8e8;}
+.labcard-l{font-size:10px;color:#888;}
+.labcard-v{font-size:14px;font-weight:700;margin-top:2px;}
+.labcard-u{font-size:10px;font-weight:400;color:#888;}
+.pillrow{display:flex;flex-wrap:wrap;gap:4px;}
+.pend-banner{background:#FAEEDA;border:1px solid #FAC775;border-radius:8px;padding:8px 12px;margin-bottom:.8rem;font-size:12px;color:#854F0B;font-weight:600;}
+
+/* 5-question detail sections */
+.det-q-title{font-size:13px;font-weight:700;margin-bottom:8px;}
+.det-q1{background:#F8F7F5;border-radius:10px;padding:12px 14px;border:1px solid #e8e8e8;}
+.det-q2{background:#F0F6FC;border-radius:10px;padding:12px 14px;border:1px solid #C9E0F2;}
+.det-q3{background:#F8F4FF;border-radius:10px;padding:12px 14px;border:1px solid #E0D0F8;}
+.det-q3 .det-q-title{color:#7B3F9E;}
+.det-q4{background:#EFFAF1;border-radius:10px;padding:12px 14px;border:1px solid #C0E8C8;}
+.det-q4 .det-q-title{color:#1A7A3C;}
+.det-q5{border-radius:10px;padding:12px 14px;border:2px solid;}
+.det-q5.alta-si{background:#EAF3DE;border-color:#27500A;}
+.det-q5.alta-no{background:#FCEBEB;border-color:#791F1F;}
+.det-q5.alta-organo{background:#EEEDFE;border-color:#3C3489;}
+.dias-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+.dias-card{background:#fff;border-radius:8px;padding:8px;text-align:center;border:1px solid #ddd;}
+.dias-n{font-size:18px;font-weight:700;color:#185FA5;}
+.dias-l{font-size:10px;color:#888;margin-top:2px;}
+.par-problema-plan{border-bottom:1px solid #e8d5f5;padding:6px 0;}
+.par-problema-plan:last-child{border-bottom:none;}
+.problema-item,.plan-item{display:flex;gap:8px;align-items:flex-start;padding:3px 0;font-size:13px;line-height:1.5;}
+.problema-num{background:#7B3F9E;color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.plan-num{background:#1A7A3C;color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.alta-banner{display:flex;gap:10px;align-items:flex-start;}
+.offline-bar{background:#FAEEDA;border-bottom:1px solid #FAC775;padding:5px 1rem;font-size:11px;color:#633806;display:none;}
+.offline-bar.show{display:block;}
+
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f1efe8;padding:1rem;}
+.login-card{background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:2rem;width:100%;max-width:360px;}
+.login-logo{text-align:center;margin-bottom:1.5rem;}
+.login-logo h1{font-size:16px;font-weight:700;color:#1a1a1a;margin-top:.5rem;}
+.login-logo p{font-size:12px;color:#888;margin-top:3px;}
+.login-field{margin-bottom:1rem;}
+.login-field label{font-size:12px;color:#666;font-weight:500;display:block;margin-bottom:5px;}
+.login-field input{width:100%;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-family:inherit;color:#1a1a1a;}
+.login-field input:focus{outline:none;border-color:#185FA5;}
+.login-btn{width:100%;background:#185FA5;color:#fff;border:none;border-radius:8px;padding:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:.5rem;}
+.login-btn:active{opacity:.85;}
+.login-error{background:#FCEBEB;border:1px solid #F7C1C1;border-radius:7px;padding:8px 12px;font-size:12px;color:#791F1F;margin-top:.75rem;display:none;}
+.login-error.show{display:block;}
+.guia-btn{background:#fff;border:1px solid #ddd;border-radius:8px;padding:.75rem 1rem;font-size:13px;font-family:inherit;cursor:pointer;text-align:left;font-weight:500;color:#185FA5;}
+.guia-btn:hover{background:#E6F1FB;border-color:#B5D4F4;}
+.proto-box{background:#f8f7f5;border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid #e8e8e8;font-size:13px;line-height:1.7;}
+.proto-box.warning{background:#FAEEDA;border-color:#FAC775;}
+.proto-box.danger{background:#FCEBEB;border-color:#F7C1C1;}
+.proto-box.ok{background:#EAF3DE;border-color:#C0DD97;}
+.proto-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:6px;margin-top:10px;}
+.drug-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+.drug-table th{background:#f0f0f0;padding:5px 8px;border:1px solid #e0e0e0;font-size:11px;color:#666;text-align:left;}
+.drug-table td{padding:5px 8px;border:1px solid #e0e0e0;vertical-align:top;}
+.drug-table tr:nth-child(even) td{background:#f8f7f5;}
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="data:image/png;base64,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" style="width:70px;height:70px;object-fit:contain;margin:0 auto;display:block;" alt="Hospital Garrahan">
+      <h1>Seguimiento de Internación</h1>
+      <p>Trasplante Hepático</p>
+    </div>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="login-user" placeholder="Usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos.</div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none;">
+<div class="offline-bar" id="ob"></div>
+<div class="hdr">
+  <div><h1>Seguimiento de Internación — Trasplante Hepático</h1><p id="fhdr"></p></div>
+  <div><span class="sdot" id="sdot" style="background:#aaa;"></span><span id="slbl" class="slbl">...</span></div>
+</div>
+<div class="tabs">
+  <button class="tab on" id="t-sala" onclick="showSala()">📋 Sala</button>
+  <button class="tab" id="t-nuevo" onclick="showForm(null)">＋ Nuevo</button>
+  <button class="tab" id="t-guia" onclick="showGuia()">📋 Guía</button>
+<button class="tab" id="t-sync" onclick="forceSync()">↻ Sync</button>
+</div>
+<div id="pnl-sala" class="content">
+  <div class="stats" style="grid-template-columns:repeat(4,1fr);">
+    <div class="stat"><div class="stat-n" id="st0">0</div><div class="stat-l">Total</div></div>
+    <div class="stat" style="border-color:#B5D4F4;"><div class="stat-n" style="color:#185FA5;" id="st1">0</div><div class="stat-l">Pre-Tx</div></div>
+    <div class="stat" style="border-color:#C0DD97;"><div class="stat-n" style="color:#27500A;" id="st2">0</div><div class="stat-l">Post-Tx</div></div>
+    <div class="stat" style="border-color:#CECBF6;"><div class="stat-n" style="color:#3C3489;" id="st3">0</div><div class="stat-l">Re-Tx</div></div>
+  </div>
+  <div class="loc-row" id="loc-row"></div>
+  <div class="loc-detalle" id="loc-detalle-uci-wrap" style="display:none;"><div id="loc-detalle-uci"></div></div>
+  <div class="loc-detalle" id="loc-detalle-cim-wrap" style="display:none;"><div id="loc-detalle-cim"></div></div>
+  <div id="cards"></div>
+  <button class="add-btn" onclick="showForm(null)">+ Agregar paciente</button>
+</div>
+<div id="pnl-det" class="content" style="display:none;"><div id="det-inner"></div></div>
+<div id="pnl-form" class="content" style="display:none;"><div id="form-inner"></div></div>
+<div id="pnl-guia" class="content" style="display:none;">
+  <div style="font-size:15px;font-weight:700;margin-bottom:.9rem;">Consulta rápida — Protocolos</div>
+  <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Manual Garrahan</div>
+  <div id="guia-menu" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem;">
+    <button class="guia-btn" onclick="showProtocolo('ramct')">Rechazo agudo (RAMCT)</button>
+    <button class="guia-btn" onclick="showProtocolo('tah')">Trombosis arteria hepática</button>
+    <button class="guia-btn" onclick="showProtocolo('tpp')">Trombosis portal</button>
+    <button class="guia-btn" onclick="showProtocolo('cmv')">Infección CMV</button>
+    <button class="guia-btn" onclick="showProtocolo('ptld')">PTLD / Linfoproliferativo</button>
+    <button class="guia-btn" onclick="showProtocolo('biliar')">Complicaciones biliares</button>
+    <button class="guia-btn" onclick="showProtocolo('profilaxis')">Profilaxis post-Tx</button>
+    <button class="guia-btn" onclick="showProtocolo('alarma')">Signos de alarma 72hs</button>
+    <button class="guia-btn" onclick="showProtocolo('is')">IS — dosis y niveles</button>
+    <button class="guia-btn" onclick="showProtocolo('peld')">PELD / MELD</button>
+  </div>
+  <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Manual UPMC Children's Hospital</div>
+  <div id="guia-menu-upmc" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem;">
+    <button class="guia-btn" onclick="showProtocolo('rechazo_upmc')">Rechazo celular agudo (ACR)</button>
+    <button class="guia-btn" onclick="showProtocolo('vigilancia_upmc')">Vigilancia rechazo subclínico</button>
+    <button class="guia-btn" onclick="showProtocolo('herida_upmc')">Complicaciones de herida Qx</button>
+    <button class="guia-btn" onclick="showProtocolo('cmv_upmc')">CMV — protocolo completo</button>
+  </div>
+  <div id="guia-content" style="display:none;">
+    <button class="btn-sec" style="margin-bottom:.9rem;font-size:12px;" onclick="document.getElementById('guia-content').style.display='none';document.getElementById('guia-menu').style.display='grid';document.getElementById('guia-menu-upmc').style.display='grid';">← Volver al menú</button>
+
+    <div id="guia-inner"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+var SU='https://script.google.com/macros/s/AKfycbxeEIeq16rF_qFBmKK6dzt2UtmaFnUYQAYqMeHcD41NR8FEJRar7s2Y-DJ5osRwNvKg/exec';
+var SK='pase_v8';
+var PXS=[], EID=null, FT={a:[],i:[],t:[]}, FC=[], FKH=[], COMP=[], IMG=[], MOV=[];
+var online=navigator.onLine, pending=[];
+
+document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+window.addEventListener('online',function(){online=true;obUpdate();flush(function(){pull();});});
+window.addEventListener('offline',function(){online=false;obUpdate();dot('of');});
+
+function dias(fecha){
+  if(!fecha)return null;
+  var d=new Date(fecha),h=new Date();
+  h.setHours(0,0,0,0);d.setHours(0,0,0,0);
+  return Math.floor((h-d)/86400000);
+}
+function hoy(){return new Date().toISOString().split('T')[0];}
+function fmtF(f){if(!f)return'—';var p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+
+// NAV
+function showSala(){
+  document.getElementById('pnl-sala').style.display='';
+  document.getElementById('pnl-det').style.display='none';
+  document.getElementById('pnl-form').style.display='none';
+  document.getElementById('pnl-guia').style.display='none';
+  setTab('t-sala');
+  window.scrollTo(0,0);
+}
+function showDet(id){
+  var p=PXS.find(function(x){return x.id===id;});
+  if(!p)return;
+  document.getElementById('pnl-sala').style.display='none';
+  document.getElementById('pnl-det').style.display='';
+  document.getElementById('pnl-form').style.display='none';
+  setTab('');
+  renderDet(p);
+  window.scrollTo(0,0);
+}
+function showForm(p){
+  EID=p?p.id:null;
+  FT={a:(p?p.abx||[]:[]).slice(),i:(p?p.is_extra||[]:[]).slice(),t:(p?p.atb||[]:[]).slice()};
+  FC=(p?p.cults||[]:[]).slice();
+  FKH=(p?p.fk_history||[]:[]).slice();
+  COMP=(p?p.complicaciones_post||[]:[]).slice();
+  IMG=(p?p.imagenes||[]:[]).slice();
+  MOV=(p?p.movimientos||[]:[]).slice();
+  document.getElementById('pnl-sala').style.display='none';
+  document.getElementById('pnl-det').style.display='none';
+  document.getElementById('pnl-guia').style.display='none';
+  document.getElementById('pnl-form').style.display='';
+  setTab('t-nuevo');
+  buildForm(p);
+  window.scrollTo(0,0);
+}
+function setTab(on){
+  ['t-sala','t-nuevo','t-sync'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el)el.className='tab'+(id===on?' on':'');
+  });
+}
+
+// SALA
+
+function getSituacionClinica(p){
+  var t=getTipo(p);
+  if(t==='pre')return 'Pretrasplante';
+  if(t==='retx')return 'Retrasplante';
+  var dp=dias(p.fecha_tx);
+  if(p.momento==='post_inmediato')return 'Postrasplante inmediato (0–7 días)';
+  if(p.momento==='post_temprano')return 'Postrasplante temprano (>7 días – <1 año)';
+  if(p.momento==='post_tardio')return 'Postrasplante tardío (>1 año)';
+  return 'Postrasplante';
+}
+
+function getProblemasActivos(p){
+  // hasta 3 problemas activos — usa campos estructurados prob1/2/3 (con detalle), con fallback a datos viejos
+  var probs=[];
+  for(var i=1;i<=3;i++){
+    var cat=p['prob'+i];
+    var det=p['prob'+i+'_det'];
+    if(cat)probs.push(cat+(det?': '+det:''));
+  }
+  if(probs.length===0){
+    // Fallback para pacientes cargados antes de este cambio
+    var t=getTipo(p);
+    if(t==='pre'||t==='retx'){
+      var evals=['cardio','neumo','nefro','infecto','neuro','orl','oftalmo','salud_mental','s_social','alimentacion','gineco'];
+      var labels={cardio:'Cardiología',neumo:'Neumología',nefro:'Nefrología',infecto:'Infectología',neuro:'Neurología',orl:'ORL',oftalmo:'Oftalmología',salud_mental:'Salud Mental',s_social:'Serv. Social',alimentacion:'Alimentación',gineco:'Ginecología'};
+      evals.forEach(function(e){if(p['eval_'+e]==='pendiente')probs.push('Evaluación pendiente: '+labels[e]);});
+      if(p.problema_actual)probs.push(p.problema_actual);
+    } else {
+      if(p.rechazo&&p.rechazo!=='No')probs.push('Rechazo: '+p.rechazo);
+      if(p.vascular&&p.vascular!=='No')probs.push('Vascular: '+p.vascular);
+      if(p.biliar&&p.biliar!=='No')probs.push('Biliar: '+p.biliar);
+      if(p.infec&&p.infec!=='No')probs.push('Infección: '+p.infec);
+      if(p.ptld&&p.ptld!=='No')probs.push('PTLD: '+p.ptld);
+      if(p.otras)probs.push(p.otras.split(',')[0].trim());
+    }
+    if(p.pendientes){p.pendientes.split('\n').forEach(function(l){if(l.trim()&&probs.length<6)probs.push(l.trim());});}
+  }
+  return probs.slice(0,3);
+}
+
+function getPlanesActivos(p){
+  // hasta 3 planes activos — usa campos estructurados plan1/2/3, con fallback a datos viejos
+  var planes=[];
+  for(var i=1;i<=3;i++){
+    var cat=p['plan'+i];
+    var det=p['plan'+i+'_det'];
+    if(cat)planes.push(cat+(det?': '+det:''));
+  }
+  if(planes.length===0){
+    var t=getTipo(p);
+    if(t==='pre'||t==='retx'){
+      planes.push('Espera de órgano'+(p.lista_estado?' ('+p.lista_estado+')':''));
+      if(p.dvr_yn==='Sí')planes.push('Evaluación DVR en curso');
+    } else {
+      if(p.tacro)planes.push('Inmunosupresión: FK '+p.tacro+' ng/mL');
+      if(p.mmf&&p.mmf!=='No')planes.push('MMF '+p.mmf);
+    }
+    if(p.abx&&p.abx.length)planes.push('Antiinfecciosos: '+p.abx.slice(0,2).join(', '));
+    if(p.vent&&p.vent!=='Sin soporte')planes.push('Soporte respiratorio: '+p.vent);
+    if(p.hemodi&&p.hemodi!=='No')planes.push('Soporte hemodinámico: '+p.hemodi);
+    if(p.nutri&&p.nutri!=='—'&&p.nutri!=='Oral')planes.push('Soporte nutricional: '+p.nutri);
+    if(p.obs){
+      var firstLine=p.obs.split('\n')[0];
+      if(firstLine&&planes.length<5)planes.push(firstLine.substring(0,60));
+    }
+  }
+  return planes.slice(0,3);
+}
+
+function getBarreraAlta(p){
+  // Barrera principal para el alta — usa campo estructurado barrera_principal, con fallback
+  if(p.barrera_principal)return {texto:p.barrera_principal, cat:'estructurada'};
+  var t=getTipo(p);
+  if(t==='pre'||t==='retx')return {texto:'Espera de órgano', cat:'organo'};
+  if(p.infec&&p.infec!=='No')return {texto:'Infección activa: '+p.infec, cat:'infeccion'};
+  var pends=getPends(p);
+  if(pends.length){
+    var pendLower=pends[0].toLowerCase();
+    if(pendLower.indexOf('angio')>=0||pendLower.indexOf('cirug')>=0||pendLower.indexOf('drenaje')>=0||pendLower.indexOf('biopsia')>=0||pendLower.indexOf('veda')>=0)
+      return {texto:'Procedimiento pendiente: '+pends[0], cat:'procedimiento'};
+    return {texto:pends[0], cat:'otro'};
+  }
+  if(p.rechazo&&p.rechazo!=='No')return {texto:'Ajuste de inmunosupresión (rechazo)', cat:'is'};
+  if(p.vascular&&p.vascular!=='No')return {texto:'Procedimiento pendiente: '+p.vascular, cat:'procedimiento'};
+  if(p.biliar&&p.biliar!=='No')return {texto:'Procedimiento pendiente: '+p.biliar, cat:'procedimiento'};
+  if(p.nutri==='NPT'||p.nutri==='NPT + SNG')return {texto:'Nutrición / tolerancia oral', cat:'nutricion'};
+  return {texto:'Sin barrera activa registrada', cat:'ninguna'};
+}
+
+function getAltaEsperada(p){
+  var dpa=diasParaAlta(p);
+  if(dpa.dias===null)return {texto:'En espera de órgano', clase:'alta-organo', icono:'⏳'};
+  if(dpa.dias<=3)return {texto:'≤72 horas', clase:'alta-si', icono:'🟢'};
+  return {texto:'>72 horas', clase:'alta-no', icono:'🔴'};
+}
+
+function getDiasUCI_CIM(p){
+  var di=dias(p.fecha_ingreso);
+  var movs=p.movimientos||[];
+  if(movs.length===0){
+    // Sin registro de movimientos: metodo simplificado (toda la internacion en la sala actual)
+    var esUCI=p.sala&&p.sala.toLowerCase().indexOf('uci')>=0;
+    return {total:di, uci:esUCI?di:null, cim:!esUCI?di:null};
+  }
+  // Con registro de movimientos: sumar dias de cada tramo
+  var diasUci=0, diasCim=0;
+  var sorted=movs.slice().sort(function(a,b){return new Date(a.fecha)-new Date(b.fecha);});
+  for(var i=0;i<sorted.length;i++){
+    var inicio=sorted[i].fecha;
+    var fin=(i+1<sorted.length)?sorted[i+1].fecha:hoy();
+    var d1=new Date(inicio), d2=new Date(fin);
+    d1.setHours(0,0,0,0);d2.setHours(0,0,0,0);
+    var dT=Math.max(0,Math.floor((d2-d1)/86400000));
+    var unidad=(sorted[i].unidad||'').toLowerCase();
+    if(unidad.indexOf('uci')>=0)diasUci+=dT;
+    else if(unidad.indexOf('cim')>=0)diasCim+=dT;
+  }
+  return {total:diasUci+diasCim, uci:diasUci, cim:diasCim};
+}
+
+function toggleLocDetalle(cual){
+  var wrap=document.getElementById('loc-detalle-'+cual+'-wrap');
+  if(!wrap)return;
+  var otraId=cual==='uci'?'cim':'uci';
+  var otraWrap=document.getElementById('loc-detalle-'+otraId+'-wrap');
+  if(otraWrap)otraWrap.style.display='none';
+  wrap.style.display=(wrap.style.display==='none')?'block':'none';
+}
+
+function toggleCardDias(id){
+  var el=document.getElementById('card-dias-'+id);
+  if(!el)return;
+  el.style.display=(el.style.display==='none')?'block':'none';
+}
+
+function getTipo(p){
+  if(p.momento==='retx')return'retx';
+  if(p.momento==='pre')return'pre';
+  return'post';
+}
+function getTipoLabel(p){
+  var t=getTipo(p);
+  if(t==='pre')return'Pre-trasplante';
+  if(t==='retx')return'Re-trasplante';
+  var m={post_inmediato:'Post-Tx inmediato',post_temprano:'Post-Tx temprano',post_tardio:'Post-Tx tardío (>6m)'};
+  return m[p.momento]||'Post-Tx';
+}
+function getPends(p){
+  var out=[];
+  if(p.momento==='pre'||p.momento==='retx'){
+    var evals=['cardio','neumo','nefro','infecto','neuro','orl','oftalmo','salud_mental','s_social','alimentacion','gineco'];
+    evals.forEach(function(e){if(p['eval_'+e]==='pendiente')out.push(e.replace('_',' '));});
+  }
+  if(p.pendientes){p.pendientes.split('\n').forEach(function(l){if(l.trim())out.push(l.trim());});}
+  return out;
+}
+
+function renderSala(pxs){
+  document.getElementById('st0').textContent=pxs.length;
+  document.getElementById('st1').textContent=pxs.filter(function(p){return p.momento==='pre';}).length;
+  document.getElementById('st2').textContent=pxs.filter(function(p){return p.momento&&p.momento!=='pre'&&p.momento!=='retx';}).length;
+  document.getElementById('st3').textContent=pxs.filter(function(p){return p.momento==='retx';}).length;
+
+  var uci=pxs.filter(function(p){return p.sala&&p.sala.toLowerCase().indexOf('uci')>=0;});
+  var cim=pxs.filter(function(p){return p.sala&&p.sala.toLowerCase().indexOf('cim')>=0;});
+  var otros=pxs.filter(function(p){return p.sala&&p.sala.toLowerCase().indexOf('uci')<0&&p.sala.toLowerCase().indexOf('cim')<0;});
+
+  function contarPorNumero(lista, prefijo, orden){
+    var conteo={};
+    lista.forEach(function(p){
+      var m=p.sala.match(/(\d+)/);
+      var num=m?m[1]:'?';
+      conteo[num]=(conteo[num]||0)+1;
+    });
+    var filas='';
+    orden.forEach(function(num){
+      if(conteo[num])filas+='<div class="loc-sub-row"><span>'+prefijo+' '+num+'</span><span class="loc-sub-n">'+conteo[num]+'</span></div>';
+    });
+    // Agregar números no contemplados en el orden, al final
+    Object.keys(conteo).forEach(function(num){
+      if(orden.indexOf(num)<0)filas+='<div class="loc-sub-row"><span>'+prefijo+' '+num+'</span><span class="loc-sub-n">'+conteo[num]+'</span></div>';
+    });
+    return filas;
+  }
+
+  var ucisubFilas=contarPorNumero(uci,'UCI',['72','44','45']);
+  var cimsubFilas=contarPorNumero(cim,'CIM',['61','41','62','63','74','75']);
+
+  var locHtml='';
+  if(uci.length){
+    locHtml+='<div class="loc loc-uci" onclick="toggleLocDetalle(\'uci\')" style="cursor:pointer;">';
+    locHtml+='<div class="loc-n">'+uci.length+'</div><div class="loc-l">UCI ▾</div>';
+    locHtml+='</div>';
+  }
+  if(cim.length){
+    locHtml+='<div class="loc loc-cim" onclick="toggleLocDetalle(\'cim\')" style="cursor:pointer;">';
+    locHtml+='<div class="loc-n">'+cim.length+'</div><div class="loc-l">CIM ▾</div>';
+    locHtml+='</div>';
+  }
+  otros.forEach(function(p){locHtml+='<div class="loc loc-otro"><div class="loc-n">1</div><div class="loc-l">'+p.sala+'</div></div>';});
+  document.getElementById('loc-row').innerHTML=locHtml;
+
+  document.getElementById('loc-detalle-uci').innerHTML=ucisubFilas;
+  document.getElementById('loc-detalle-cim').innerHTML=cimsubFilas;
+
+  if(!pxs.length){document.getElementById('cards').innerHTML='<div style="text-align:center;padding:2rem;color:#888;">No hay pacientes. Tocá + Nuevo para agregar.</div>';return;}
+
+  // Ordenar: UCI primero, luego el resto
+  var pxsOrdenados=pxs.slice().sort(function(a,b){
+    var aUci=a.sala&&a.sala.toLowerCase().indexOf('uci')>=0?0:1;
+    var bUci=b.sala&&b.sala.toLowerCase().indexOf('uci')>=0?0:1;
+    return aUci-bUci;
+  });
+
+  var tipoCls={pre:'s-pre',post:'s-post',retx:'s-retx'};
+  var cbCls={pre:'cb-pre',post:'cb-post',retx:'cb-retx'};
+  var html='';
+  pxsOrdenados.forEach(function(p){
+    var t=getTipo(p);
+    var diasUCcard=getDiasUCI_CIM(p);
+    var di=diasUCcard.total;
+    var problemas=getProblemasActivos(p);
+    var planes=getPlanesActivos(p);
+    var barrera=getBarreraAlta(p);
+    var alta=getAltaEsperada(p);
+    html+='<div class="card" onclick="showDet('+p.id+')">';
+    // ¿Quién es?
+    html+='<div class="card-top"><div class="strip '+tipoCls[t]+'"></div><div style="flex:1;min-width:0;">';
+    html+='<div class="cname">'+p.nombre+'</div>';
+    html+='<div class="csub">'+(p.edad||'')+(p.peso?' · '+p.peso+' kg':'')+' · '+(p.diag||'—')+'</div>';
+    // ¿Dónde está?
+    if(p.sala)html+='<div class="csub" style="font-weight:600;">📍 '+(p.sala)+(p.lugar_int?' — Cama '+p.lugar_int:'')+'</div>';
+    html+='<div class="cbrow"><span class="cb '+cbCls[t]+'">'+getSituacionClinica(p)+'</span>';
+    html+='</div></div></div>';
+    // ¿Qué problemas tiene?
+    if(problemas.length){
+      html+='<div class="card-section card-problemas"><div class="card-sec-lbl">⚠ Problemas activos</div>';
+      problemas.forEach(function(pr,i){html+='<div class="card-sec-item">'+(i+1)+'. '+pr+'</div>';});
+      html+='</div>';
+    }
+    // ¿Qué estamos haciendo?
+    if(planes.length){
+      html+='<div class="card-section card-planes"><div class="card-sec-lbl">✓ Planes activos</div>';
+      planes.forEach(function(pl,i){html+='<div class="card-sec-item">'+(i+1)+'. '+pl+'</div>';});
+      html+='</div>';
+    }
+    // ¿Qué le falta para irse?
+    html+='<div class="card-section card-alta '+alta.clase+'">';
+    html+='<div class="card-sec-lbl">'+alta.icono+' Alta esperada: '+alta.texto+'</div>';
+    html+='<div class="card-sec-item" style="font-weight:600;">Barrera: '+barrera.texto+'</div>';
+    if(di!==null){
+      html+='<div class="card-sec-item card-dias-row" onclick="event.stopPropagation();toggleCardDias('+p.id+')" style="font-size:10px;color:#888;cursor:pointer;">';
+      html+='Internado <strong>'+di+'</strong> día'+(di===1?'':'s')+' <span style="text-decoration:underline;">▾ ver UCI/CIM</span>';
+      html+='</div>';
+      html+='<div class="card-dias-detalle" id="card-dias-'+p.id+'" style="display:none;font-size:10px;color:#666;padding:4px 0 0 4px;">';
+      html+='UCI: <strong>'+(diasUCcard.uci!==null?diasUCcard.uci:0)+'</strong> día(s) · CIM: <strong>'+(diasUCcard.cim!==null?diasUCcard.cim:0)+'</strong> día(s)';
+      html+='</div>';
+    }
+    html+='</div>';
+    html+='</div>';
+  });
+  document.getElementById('cards').innerHTML=html;
+}
+
+// DETAIL
+function renderDet(p){
+  var t=getTipo(p);
+  var cbCls={pre:'cb-pre',post:'cb-post',retx:'cb-retx'}[t];
+  var pends=getPends(p);
+  var di=dias(p.fecha_ingreso);
+  var dp=t!=='pre'?dias(p.fecha_tx):null;
+  var da=p.fecha_inicio_atb?dias(p.fecha_inicio_atb):null;
+  var labHist=p.lab_history||[];
+  var labAct=labHist.length?labHist[labHist.length-1]:null;
+  var fkHist=p.fk_history||[];
+  var sc=scoreDetalle(p);
+  var dpaD=diasParaAlta(p);
+  var problemas=getProblemasActivos(p);
+  var planes=getPlanesActivos(p);
+  var barrera=getBarreraAlta(p);
+  var altaEsp=getAltaEsperada(p);
+  var diasUC=getDiasUCI_CIM(p);
+  var pp=function(arr,cls){return arr&&arr.length?'<div class="pillrow">'+arr.map(function(v){return'<span class="tg '+cls+'">'+v+'</span>';}).join('')+'</div>':'<span style="color:#888">—</span>';};
+  var rw=function(l,v,isPend){return(v&&v!=='No'&&v!=='—'&&v!=='')?'<div class="det-row"><span class="det-l">'+l+'</span><span class="det-v'+(isPend?' pend':'')+'">'+v+'</span></div>':'';};
+
+  var h='';
+  h+='<div class="det-hdr"><div><div class="det-name">'+p.nombre+'</div><div class="det-badges">';
+  h+='<span class="cb '+cbCls+'">'+getSituacionClinica(p)+'</span>';
+  if(p.estado)h+='<span class="cb cb-gray">'+p.estado+'</span>';
+  if(p.lista_estado)h+='<span class="cb '+(p.lista_estado==='Activo'?'cb-ok':'cb-gray')+'">'+p.lista_estado+'</span>';
+  h+='</div></div><button class="det-back" onclick="showSala()">← Sala</button></div>';
+
+  h+='<div class="det-sec det-q1"><div class="det-q-title">Datos del paciente</div>';
+  h+=rw('Nombre y apellido',p.nombre);
+  h+=rw('Edad / Peso',(p.edad||'—')+' · '+(p.peso||'—')+' kg');
+  h+=rw('HC',p.hc);
+  if(t==='pre'||t==='retx'){
+    h+=rw('Enfermedad de base',p.diag+(p.enf_base?' — '+p.enf_base:''));
+  } else {
+    h+=rw('Tipo de trasplante',p.tipo_tx||(p.tipo_injerto||'')+(p.donante?' — '+p.donante:''));
+    h+=rw('Fecha del trasplante',fmtF(p.fecha_tx));
+  }
+  h+=rw('Fecha de ingreso',fmtF(p.fecha_ingreso));
+  h+='</div>';
+
+  h+='<div class="det-sec det-q2"><div class="det-q-title">Lugar y situación clínica</div>';
+  h+=rw('Lugar',p.sala+(p.lugar_int?' — Cama '+p.lugar_int:''));
+  h+=rw('Situación clínica',getSituacionClinica(p));
+  h+='<div class="dias-grid">';
+  h+='<div class="dias-card"><div class="dias-n">'+(diasUC.total!==null?diasUC.total:'—')+'</div><div class="dias-l">Total días</div></div>';
+  h+='<div class="dias-card"><div class="dias-n">'+(diasUC.uci!==null?diasUC.uci:'—')+'</div><div class="dias-l">UCI</div></div>';
+  h+='<div class="dias-card"><div class="dias-n">'+(diasUC.cim!==null?diasUC.cim:'—')+'</div><div class="dias-l">CIM</div></div>';
+  h+='</div>';
+  if(p.movimientos&&p.movimientos.length){
+    h+='<div style="margin-top:8px;font-size:11px;">';
+    var movsOrd=p.movimientos.slice().sort(function(a,b){return new Date(a.fecha)-new Date(b.fecha);});
+    movsOrd.forEach(function(mv){h+='<div style="color:#666;">• '+mv.unidad+' desde '+fmtF(mv.fecha)+'</div>';});
+    h+='</div>';
+  }
+  h+='</div>';
+
+  h+='<div class="det-sec det-q3"><div class="det-q-title">Problemas activos y planes</div>';
+  var hayAlgo=false;
+  for(var pi3=1;pi3<=3;pi3++){
+    var probTxt=p['prob'+pi3]?(p['prob'+pi3]+(p['prob'+pi3+'_det']?': '+p['prob'+pi3+'_det']:'')):'';
+    var planTxt=p['plan'+pi3]?(p['plan'+pi3]+(p['plan'+pi3+'_det']?': '+p['plan'+pi3+'_det']:'')):'';
+    if(probTxt||planTxt){
+      hayAlgo=true;
+      h+='<div class="par-problema-plan">';
+      h+='<div class="problema-item"><span class="problema-num">'+pi3+'</span><span>'+(probTxt||'<span style="color:#bbb;">Sin problema asignado</span>')+'</span></div>';
+      h+='<div class="plan-item"><span class="plan-num">'+pi3+'</span><span>'+(planTxt||'<span style="color:#bbb;">Sin plan asignado</span>')+'</span></div>';
+      h+='</div>';
+    }
+  }
+  if(!hayAlgo){
+    // Fallback para pacientes viejos sin campos estructurados
+    if(problemas.length||planes.length){
+      var maxL=Math.max(problemas.length,planes.length);
+      for(var fi=0;fi<maxL;fi++){
+        h+='<div class="par-problema-plan">';
+        h+='<div class="problema-item"><span class="problema-num">'+(fi+1)+'</span><span>'+(problemas[fi]||'—')+'</span></div>';
+        h+='<div class="plan-item"><span class="plan-num">'+(fi+1)+'</span><span>'+(planes[fi]||'—')+'</span></div>';
+        h+='</div>';
+      }
+    } else {
+      h+='<div style="color:#888;font-size:13px;">Sin problemas ni planes activos registrados</div>';
+    }
+  }
+  h+='</div>';
+
+  h+='<div class="det-sec det-q5 '+altaEsp.clase+'"><div class="det-q-title">Alta esperada</div>';
+  h+='<div class="alta-banner"><span style="font-size:20px;">'+altaEsp.icono+'</span><div><div style="font-weight:700;font-size:14px;">Alta esperada: '+altaEsp.texto+'</div>';
+  h+='<div style="font-size:12px;margin-top:2px;">Barrera principal: <strong>'+barrera.texto+'</strong></div>';
+  if(p.barrera_secundaria)h+='<div style="font-size:12px;margin-top:2px;">Barrera secundaria: '+p.barrera_secundaria+'</div>';
+  if(p.barrera_terciaria)h+='<div style="font-size:12px;margin-top:2px;">Barrera terciaria: '+p.barrera_terciaria+'</div>';
+  h+='</div></div>';
+  if(dpaD.motivos&&dpaD.motivos.length)h+='<div style="font-size:11px;color:#888;margin-top:6px;">Factores: '+dpaD.motivos.join(' · ')+'</div>';
+  h+='<div style="margin-top:10px;display:flex;align-items:center;gap:8px;">';
+  h+='<label style="font-size:11px;color:#888;white-space:nowrap;">Corrección médica (días):</label>';
+  h+='<input type="number" min="0" id="dpa-edit" value="'+(p.dias_alta_manual||'')+'" placeholder="Días hasta alta" style="width:120px;font-size:13px;padding:5px 8px;border:1px solid #ddd;border-radius:6px;">';
+  h+='<button onclick="guardarDPA('+p.id+')" style="font-size:12px;padding:5px 10px;background:#185FA5;color:#fff;border:none;border-radius:6px;cursor:pointer;">Guardar</button>';
+  h+='</div></div>';
+
+  if(pends.length)h+='<div class="pend-banner">⚠ Pendientes detallados: '+pends.join(' · ')+'</div>';
+
+  h+='<div class="det-sec" style="margin-top:1.2rem;"><div class="det-slbl" style="font-size:11px;">— Información clínica ampliada —</div></div>';
+
+  if(t==='pre'||t==='retx'){
+    h+='<div class="det-sec"><div class="det-slbl green">Pretrasplante</div>';
+    if(p.peld||p.meld){
+      h+='<div class="peld-row">';
+      if(p.peld)h+='<div class="peld-card"><div class="peld-n">'+p.peld+'</div><div class="peld-l">PELD</div></div>';
+      if(p.meld)h+='<div class="peld-card"><div class="peld-n">'+p.meld+'</div><div class="peld-l">MELD</div></div>';
+      if(p.lista_estado)h+='<div class="peld-card"><div class="peld-n" style="font-size:15px;">'+p.lista_estado+'</div><div class="peld-l">Lista desde '+fmtF(p.fecha_lista)+'</div></div>';
+      h+='</div>';
+    }
+    var evalItems=[['cardio','Cardiología'],['neumo','Neumología'],['nefro','Nefrología'],['infecto','Infectología'],['neuro','Neurología'],['orl','ORL'],['oftalmo','Oftalmología'],['salud_mental','Salud Mental'],['s_social','Serv. Social'],['alimentacion','Alimentación'],['gineco','Ginecología']];
+    var pendEvals=evalItems.filter(function(x){return p['eval_'+x[0]]==='pendiente';});
+    var aptoEvals=evalItems.filter(function(x){return p['eval_'+x[0]]==='apto';});
+    if(pendEvals.length)h+='<div class="det-row"><span class="det-l">Pendientes</span><span class="det-v pend">'+pendEvals.map(function(x){return x[1];}).join(', ')+'</span></div>';
+    if(aptoEvals.length)h+='<div class="det-row"><span class="det-l">Aptos</span><span class="det-v" style="color:#27500A;">'+aptoEvals.map(function(x){return x[1];}).join(', ')+'</span></div>';
+    h+='</div>';
+  }
+
+  if(t==='retx')h+=rw('Causa fallo injerto previo',p.causa_fallo);
+
+  if(p.obs)h+='<div class="det-sec"><div class="det-slbl">Notas / plan del día</div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap;">'+p.obs+'</div></div>';
+
+  h+='<div class="det-sec"><div class="det-slbl">Pronóstico clínico</div>';
+  h+='<div class="sbox"><span class="badge '+sc.cls+'">'+sc.niv+'</span></div></div>';
+
+  h+='<div class="form-actions">';
+  h+='<button class="btn-sec" onclick="showForm(PXS.find(function(x){return x.id==='+p.id+';}))">Editar</button>';
+  h+='<button class="btn-alta" onclick="darAlta('+p.id+')">Dar de alta ✓</button>';
+  h+='</div>';
+
+  document.getElementById('det-inner').innerHTML=h;
+}
+
+function buildForm(p){
+  var gv=function(f,fb){var val=p?p[f]:undefined;return val!=null?val:(fb!=null?fb:'');};
+  var mo=gv('momento','');
+
+  var h='<div style="font-size:15px;font-weight:700;margin-bottom:.8rem;">'+(EID?'Editar':'Nuevo')+' paciente</div>';
+
+  // PUNTO 2: Situación clínica — PRIMERO, controla qué se muestra del punto 1
+  h+='<div class="sec-box"><div class="sec-lbl blue">1. Situación clínica</div>';
+  h+='<div class="fld gca" style="margin-bottom:8px;"><label>Seleccionar situación clínica actual</label>';
+  h+='<select id="fmo" onchange="onMomento()">';
+  h+='<option value="">— seleccionar —</option>';
+  [['pre','Pretrasplante'],['post_inmediato','Postrasplante inmediato (0–7 días)'],['post_temprano','Postrasplante temprano (>7 días – <1 año)'],['post_tardio','Postrasplante tardío (>1 año)'],['retx','Retrasplante']].forEach(function(x){
+    h+='<option value="'+x[0]+'"'+(mo===x[0]?' selected':'')+'>'+x[1]+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div id="ctx-box" class="ctx-box" style="display:none;"></div></div>';
+
+  // PUNTO 1: Enfermedad de base (si Pretrasplante/Retrasplante) o Tipo de trasplante (si Postrasplante) — mutuamente excluyentes
+  h+='<div class="sec-box"><div class="sec-lbl '+((!mo||mo==='pre'||mo==='retx')?'blue':'green')+'" id="sec1-title">2. '+((!mo||mo==='pre'||mo==='retx')?'Enfermedad de base':'Tipo de trasplante')+'</div>';
+  h+='<div class="fld gca" id="wrap-enfbase" style="display:'+((!mo||mo==='pre'||mo==='retx')?'flex':'none')+';flex-direction:column;gap:3px;"><label>Enfermedad de base</label><select id="fdiag" onchange="onDiag()"><option value="">—</option>';
+  ['Atresia de vías biliares','PFIC (Colestasis intrahepática familiar progresiva)','Déficit de alfa-1 antitripsina','Hepatitis autoinmune','Colangitis esclerosante','Síndrome de Alagille','Enfermedad metabólica','Falla hepática aguda','Tumor hepático','Otras'].forEach(function(o){h+='<option'+(gv('diag')===o?' selected':'')+'>'+o+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fld gca" id="wrap-tipotx" style="display:'+(mo&&mo!=='pre'&&mo!=='retx'?'flex':'none')+';flex-direction:column;gap:3px;"><label>Tipo de trasplante</label><select id="ftipotx"><option value="">—</option>';
+  ['TH (trasplante hepático)','TH-R (trasplante hepatorrenal)','TH-DV (donante vivo)','Retrasplante hepático','Split','Donante en asistolia'].forEach(function(o){h+='<option'+(gv('tipo_tx')===o?' selected':'')+'>'+o+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fld" id="wrap-fechatx" style="display:'+(mo&&mo!=='pre'&&mo!=='retx'?'flex':'none')+';flex-direction:column;gap:3px;"><label>Fecha del trasplante</label><input id="fftx" type="date" value="'+gv('fecha_tx')+'"></div>';
+  h+='<div class="fld" style="margin-top:7px;"><label>Detalle libre (opcional)</label><input id="fenf" value="'+gv('enf_base')+'" placeholder="Ej: HAI, AVB, fecha del trasplante..."></div>';
+  h+='</div>';
+
+  // ID
+  h+='<div class="sec-box"><div class="sec-lbl">Identificación</div><div class="g2">';
+  h+='<div class="fld gca"><label>Nombre y apellido</label><input id="fnom" value="'+gv('nombre')+'" placeholder="Apellido, Nombre" autocapitalize="words"></div>';
+  h+='<div class="fld"><label>Edad</label><div class="ar"><input id="fedad" type="number" min="0" value="'+gv('edad_n')+'" placeholder="número" style="width:auto;"><select id="fedadu" style="width:auto;">';
+  ['años','meses','días'].forEach(function(u){h+='<option'+(gv('edad_u','años')===u?' selected':'')+'>'+u+'</option>';});
+  h+='</select></div></div>';
+  h+='<div class="fld"><label>Peso (kg)</label><input id="fpeso" type="number" step="0.1" value="'+gv('peso')+'" placeholder="kg"></div>';
+  h+='<div class="fld"><label>HC</label><input id="fhc" value="'+gv('hc')+'" placeholder="Nº historia clínica"></div>';
+  h+='<div class="fld" id="wrap-kasai" style="display:'+(gv('diag','').indexOf('vías biliares')>=0?'flex':'none')+';flex-direction:column;gap:3px;"><label>Kasai previo</label><select id="fkasai">';
+  ['—','Sí','No'].forEach(function(o){h+='<option'+(gv('cirugia_previa')===o?' selected':'')+'>'+o+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fld"><label>Sala / Unidad</label><select id="fsala" onchange="onSala()">';
+  var salaVal=gv('sala','');
+  ['','UCI 72','CIM 61','otro'].forEach(function(o){
+    var label=o===''?'— seleccionar —':o==='otro'?'Otro':o;
+    var sel=o===''?(!salaVal):o==='otro'?(!['UCI 72','CIM 61'].includes(salaVal)&&salaVal!==''):salaVal===o;
+    h+='<option value="'+o+'"'+(sel?' selected':'')+'>'+label+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div class="fld" id="fsala-otro-wrap" style="display:'+((!['UCI 72','CIM 61',''].includes(salaVal))?'block':'none');+'"><label>Especificar sala</label><input id="fsalaotro" value="'+((!['UCI 72','CIM 61',''].includes(salaVal))?salaVal:'')+'" placeholder="Ej: CIM 62..."></div>';
+  h+='<div class="fld"><label>Cama / lugar</label><input id="flugar" value="'+gv('lugar_int')+'" placeholder="Nº cama, box..."></div>';
+  h+='<div class="fld gca" style="background:#f0f0f0;border-radius:8px;padding:10px;border:1px solid #ddd;">';
+  h+='<label style="font-weight:700;margin-bottom:6px;">Registro de traslados UCI / CIM</label>';
+  h+='<div class="g2" style="margin-bottom:6px;">';
+  h+='<div class="fld"><label>Unidad</label><select id="fmovunidad">';
+  h+='<option value="">— seleccionar —</option>';
+  h+='<option>UCI 72</option><option>UCI 44</option><option>UCI 45</option>';
+  h+='<option>CIM 61</option><option>CIM 41</option><option>CIM 62</option><option>CIM 63</option><option>CIM 74</option><option>CIM 75</option>';
+  h+='</select></div>';
+  h+='<div class="fld"><label>Fecha de ingreso a esta unidad</label><input id="fmovfecha" type="date" value="'+hoy()+'"></div>';
+  h+='</div>';
+  h+='<button type="button" class="btn-sec" style="font-size:12px;padding:7px 12px;" onclick="addMov()">+ Registrar traslado</button>';
+  h+='<div id="mov-list" style="margin-top:8px;display:flex;flex-direction:column;gap:5px;">';
+  var movsActuales=MOV.slice().sort(function(a,b){return new Date(a.fecha)-new Date(b.fecha);});
+  for(var mvi=0;mvi<movsActuales.length;mvi++){
+    var mv=movsActuales[mvi];
+    h+='<div class="mov-item"><span style="flex:1;"><strong>'+mv.unidad+'</strong> desde '+fmtF(mv.fecha)+'</span><span class="tx" onclick="rmMov('+mvi+')">x</span></div>';
+  }
+  h+='</div>';
+  h+='<div style="font-size:10px;color:#888;margin-top:6px;">Cada traslado marca el inicio de un periodo en esa unidad. El periodo termina cuando se registra el siguiente traslado, o en la fecha de hoy si es el ultimo.</div>';
+  h+='</div>';
+  h+='<div class="fld"><label>Nacionalidad</label><input id="fnac" value="'+gv('nacionalidad')+'" placeholder="Argentino/a"></div>';
+  h+='<div class="fld"><label>Residencia</label>';
+  h+='<select id="fres" onchange="onRes()">';
+  h+='<option value="">— seleccionar —</option>';
+  h+='<option'+(gv('residencia')==='Buenos Aires'?' selected':'')+'>Buenos Aires</option>';
+  h+='<option'+(gv('residencia')==='CABA'?' selected':'')+'>CABA</option>';
+  h+='<option'+(gv('residencia')==='Catamarca'?' selected':'')+'>Catamarca</option>';
+  h+='<option'+(gv('residencia')==='Chaco'?' selected':'')+'>Chaco</option>';
+  h+='<option'+(gv('residencia')==='Chubut'?' selected':'')+'>Chubut</option>';
+  h+='<option'+(gv('residencia')==='Córdoba'?' selected':'')+'>Córdoba</option>';
+  h+='<option'+(gv('residencia')==='Corrientes'?' selected':'')+'>Corrientes</option>';
+  h+='<option'+(gv('residencia')==='Entre Ríos'?' selected':'')+'>Entre Ríos</option>';
+  h+='<option'+(gv('residencia')==='Formosa'?' selected':'')+'>Formosa</option>';
+  h+='<option'+(gv('residencia')==='Jujuy'?' selected':'')+'>Jujuy</option>';
+  h+='<option'+(gv('residencia')==='La Pampa'?' selected':'')+'>La Pampa</option>';
+  h+='<option'+(gv('residencia')==='La Rioja'?' selected':'')+'>La Rioja</option>';
+  h+='<option'+(gv('residencia')==='Mendoza'?' selected':'')+'>Mendoza</option>';
+  h+='<option'+(gv('residencia')==='Misiones'?' selected':'')+'>Misiones</option>';
+  h+='<option'+(gv('residencia')==='Neuquén'?' selected':'')+'>Neuquén</option>';
+  h+='<option'+(gv('residencia')==='Río Negro'?' selected':'')+'>Río Negro</option>';
+  h+='<option'+(gv('residencia')==='Salta'?' selected':'')+'>Salta</option>';
+  h+='<option'+(gv('residencia')==='San Juan'?' selected':'')+'>San Juan</option>';
+  h+='<option'+(gv('residencia')==='San Luis'?' selected':'')+'>San Luis</option>';
+  h+='<option'+(gv('residencia')==='Santa Cruz'?' selected':'')+'>Santa Cruz</option>';
+  h+='<option'+(gv('residencia')==='Santa Fe'?' selected':'')+'>Santa Fe</option>';
+  h+='<option'+(gv('residencia')==='Santiago del Estero'?' selected':'')+'>Santiago del Estero</option>';
+  h+='<option'+(gv('residencia')==='Tierra del Fuego'?' selected':'')+'>Tierra del Fuego</option>';
+  h+='<option'+(gv('residencia')==='Tucumán'?' selected':'')+'>Tucumán</option>';
+  h+='<option value="Extranjero"'+(gv('residencia')==='Extranjero'?' selected':'')+'>Extranjero</option>';
+  h+='</select>';
+  var _resv=gv('residencia','');
+  var _resext=(_resv==='Extranjero');
+  var _resprov=['Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes','Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones','Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe','Santiago del Estero','Tierra del Fuego','Tucumán'].indexOf(_resv)>=0;
+  h+='<input id="fres-ext" value="'+(_resext?gv('residencia_detalle',''):'')+'" placeholder="País de origen" style="margin-top:5px;display:'+(_resext?'block':'none')+'">';
+  h+='</div>';
+  h+='<div class="fld"><label>Grupo y factor</label><select id="fgf">';
+  ['','0+','0-','A+','A-','B+','B-','AB+','AB-'].forEach(function(o){h+='<option value="'+o+'"'+(gv('grupo_factor')===o?' selected':'')+'>'+( o||'— seleccionar —')+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fld"><label>Fecha de ingreso</label><input id="ffi" type="date" value="'+gv('fecha_ingreso',hoy())+'"></div>';
+  h+='</div>';
+  h+='</div>';
+
+  // PUNTO 3 + 4: PROBLEMAS ACTIVOS emparejados con su PLAN correspondiente (1↔1, 2↔2, 3↔3)
+  var probOptsPre=['Falla hepática aguda','Enfermedad hepática crónica descompensada (Ascitis / PBE / Sangrado digestivo / SHR)','Infección / Sepsis','Complicación cardiopulmonar (Síndrome hepatopulmonar / Hipertensión portopulmonar)','Problema nutricional (Desnutrición / Falla de crecimiento / Osteopatía hepática)','Problema psicosocial'];
+  var probOptsPost=['Injerto (disfunción / rechazo / recurrencia / alteración bioquímica)','Infección (bacteriana / viral / fúngica / sepsis)','Complicación vascular o biliar (trombosis / estenosis / fuga biliar / colangitis)','Complicación respiratoria','Complicación renal/metabólica','Problema nutricional','Complicación neurológica','Inmunosupresión (variabilidad FK / toxicidad / neutropenia)','Problema psicosocial / alta'];
+  var planOpts=['Tratamiento médico','Antiinfecciosos (Antibióticos / Antivirales / Antifúngicos)','Inmunosupresión','Procedimiento (Biopsia / Endoscopía / Angioplastía / Drenaje)','Cirugía','Soporte nutricional (Enteral / Parenteral / Mixto)','Soporte de órganos (O2 / VNI / ARM / Diálisis)','Rehabilitación','Preparación del alta','Espera de órgano'];
+  h+='<div class="sec-box"><div class="sec-lbl problemas-color">3. Problemas activos y sus planes (hasta 3)</div>';
+  h+='<div style="font-size:11px;color:#888;margin-bottom:10px;">Cada problema debe tener su plan correspondiente en el mismo número.</div>';
+  for(var pi=1;pi<=3;pi++){
+    h+='<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px;margin-bottom:8px;">';
+    h+='<div style="font-size:11px;font-weight:700;color:#7B3F9E;margin-bottom:6px;">PUNTO '+pi+'</div>';
+    h+='<div class="g2" style="margin-bottom:6px;"><div class="fld"><label>Problema activo '+pi+'</label><select id="fprob'+pi+'"><option value="">— sin asignar —</option>';
+    h+='<optgroup label="Pretrasplante">';
+    probOptsPre.forEach(function(o){h+='<option'+(gv('prob'+pi)===o?' selected':'')+'>'+o+'</option>';});
+    h+='</optgroup><optgroup label="Postrasplante">';
+    probOptsPost.forEach(function(o){h+='<option'+(gv('prob'+pi)===o?' selected':'')+'>'+o+'</option>';});
+    h+='</optgroup></select></div>';
+    h+='<div class="fld"><label>Detalle del problema '+pi+'</label><input id="fprob'+pi+'d" value="'+gv('prob'+pi+'_det')+'" placeholder="Especificar..."></div></div>';
+    h+='<div class="g2"><div class="fld"><label>Plan activo '+pi+' (solución a este problema)</label><select id="fplan'+pi+'"><option value="">— sin asignar —</option>';
+    planOpts.forEach(function(o){h+='<option'+(gv('plan'+pi)===o?' selected':'')+'>'+o+'</option>';});
+    h+='</select></div>';
+    h+='<div class="fld"><label>Detalle del plan '+pi+'</label><input id="fplan'+pi+'d" value="'+gv('plan'+pi+'_det')+'" placeholder="Especificar..."></div></div>';
+    h+='</div>';
+  }
+  h+='</div>';
+
+  // PUNTO 7: BARRERA PARA EL ALTA (hasta 3 niveles, cada una UNA sola opción) — 11 opciones según dashboard
+  var barreraOpts=['Infección activa','Procedimiento pendiente','Cirugía pendiente','Ajuste de inmunosupresión','Nutrición','Rehabilitación','Capacitación familiar','Equipamiento domiciliario','Cobertura / autorización','Problema social','Espera de órgano','Otras'];
+  h+='<div class="sec-box"><div class="sec-lbl red">4. Barreras para el alta</div>';
+  h+='<div style="font-size:11px;color:#888;margin:8px 0;">Cada barrera admite UNA sola opción de la lista.</div>';
+  [['fbarp','Barrera principal','barrera_principal'],['fbars','Barrera secundaria','barrera_secundaria'],['fbart','Barrera terciaria','barrera_terciaria']].forEach(function(x){
+    h+='<div class="fld" style="margin-bottom:8px;"><label>'+x[1]+'</label><select id="'+x[0]+'"><option value="">— ninguna —</option>';
+    barreraOpts.forEach(function(o){h+='<option'+(gv(x[2])===o?' selected':'')+'>'+o+'</option>';});
+    h+='</select></div>';
+  });
+  h+='</div>';
+
+  // PRE
+  h+='<div id="sec-pre" style="display:'+(mo==='pre'||mo==='retx'?'block':'none')+';">';
+  h+='<div class="sec-box"><div class="sec-lbl green">Pre-trasplante</div><div class="g4">';
+  var edadN=parseInt(gv('edad_n',0))||0;
+  var edadU=gv('edad_u','años');
+  var esMenor12=(edadU==='meses'||edadU==='días'||(edadU==='años'&&edadN<12));
+  if(esMenor12){
+    h+='<div class="fld" id="wrap-peld"><label>PELD <span style="font-size:10px;color:#888;">(< 12 años)</span></label><input id="fpeld" type="number" value="'+gv('peld')+'" placeholder="score"></div>';
+    h+='<input type="hidden" id="fmeld" value="">';
+  } else {
+    h+='<div class="fld" id="wrap-meld"><label>MELD <span style="font-size:10px;color:#888;">(≥ 12 años)</span></label><input id="fmeld" type="number" value="'+gv('meld')+'" placeholder="score"></div>';
+    h+='<input type="hidden" id="fpeld" value="">';
+  }
+  h+='<div class="fld"><label>Estado en lista</label><select id="flista">';
+  ['','Activo','Inactivo','No ingresado aún'].forEach(function(o){h+='<option'+(gv('lista_estado')===o?' selected':'')+'>'+o+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fld"><label>Fecha ingreso lista</label><input id="fflist" type="date" value="'+gv('fecha_lista')+'"></div>';
+  h+='<div class="fld"><label>Talla (cm)</label><input id="ftalla" type="number" value="'+gv('talla')+'"></div>';
+  h+='<div class="fld"><label>PU (cm)</label><input id="fpu" type="number" value="'+gv('pu')+'"></div>';
+  h+='</div>';
+  h+='<div class="fld" style="margin-top:8px;"><label>Donante vivo relacionado (DVR)</label>';
+  h+='<select id="fdvr_yn" onchange="onDVR()">';
+  ['No','Sí'].forEach(function(o){h+='<option'+(gv('dvr_yn','No')===o?' selected':'')+'>'+o+'</option>';});
+  h+='</select></div>';
+  h+='<div id="dvr-datos" style="margin-top:8px;display:'+(gv('dvr_yn','No')==='Sí'?'block':'none')+';">';
+  h+='<div style="background:#f0f0f0;border-radius:8px;padding:10px;border:1px solid #ddd;">';
+  h+='<div style="font-size:10px;font-weight:700;color:#666;text-transform:uppercase;margin-bottom:8px;">Datos del DVR</div>';
+  h+='<div class="g4">';
+  h+='<div class="fld"><label>Familiar (parentesco)</label><input id="fdvr_fam" value="'+gv('dvr_familiar')+'" placeholder="Madre, padre, hermano..."></div>';
+  h+='<div class="fld"><label>DNI</label><input id="fdvr_dni" value="'+gv('dvr_dni')+'" placeholder="DNI"></div>';
+  h+='<div class="fld"><label>HC</label><input id="fdvr_hc" value="'+gv('dvr_hc')+'" placeholder="Historia clínica"></div>';
+  h+='<div class="fld"><label>Peso (kg)</label><input id="fdvr_peso" type="number" step="0.1" value="'+gv('dvr_peso')+'" placeholder="kg"></div>';
+  h+='<div class="fld"><label>Talla (cm)</label><input id="fdvr_talla" type="number" value="'+gv('dvr_talla')+'" placeholder="cm"></div>';
+  h+='<div class="fld"><label>IMC</label><input id="fdvr_imc" value="'+gv('dvr_imc')+'" placeholder="calculado"></div>';
+  h+='<div class="fld"><label>Grupo y factor</label><select id="fdvr_gf">';
+  ['','0+','0-','A+','A-','B+','B-','AB+','AB-'].forEach(function(o){h+='<option value="'+o+'"'+(gv('dvr_gf')===o?' selected':'')+'>'+( o||'—')+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fld"><label>GRWR (%)</label><input id="fdvr_grwr" value="'+gv('dvr_grwr')+'" placeholder="0.8-4"></div>';
+  h+='</div></div></div>';
+  h+='</div></div>';
+
+  // RETX
+  h+='<div id="sec-retx" style="display:'+(mo==='retx'?'block':'none')+';">';
+  h+='<div class="sec-box"><div class="sec-lbl purple">Re-trasplante</div><div class="g2">';
+  h+='<div class="fld"><label>Causa fallo injerto previo</label><input id="fcausa" value="'+gv('causa_fallo')+'" placeholder="Trombosis, rechazo crónico..."></div>';
+  h+='<div class="fld"><label>Fecha re-Tx</label><input id="fretxf" type="date" value="'+gv('fecha_retx')+'"></div>';
+  h+='</div></div></div>';
+
+  // Plan
+  h+='<div class="sec-box"><div class="sec-lbl">Plan del día / observaciones</div>';
+  h+='<div class="fld"><textarea id="fobs" placeholder="Plan, indicaciones, interconsultas...">'+gv('obs')+'</textarea></div></div>';
+
+  h+='<div class="form-actions">';
+  h+='<button class="btn-pri" onclick="fguardar()">Guardar ↗</button>';
+  h+='<button class="btn-sec" onclick="showSala()">Cancelar</button>';
+  if(EID)h+='<button class="btn-del" onclick="delPx('+EID+')">Eliminar</button>';
+  h+='</div>';
+
+  document.getElementById('form-inner').innerHTML=h;
+  ['a','i','t'].forEach(function(t){frtags(t);});
+  onMomento();
+}
+
+function onRes(){
+  var v=document.getElementById('fres')?document.getElementById('fres').value:'';
+  var ext=document.getElementById('fres-ext');
+  if(ext)ext.style.display=v==='Extranjero'?'block':'none';
+}
+function onDVR(){
+  var v=document.getElementById('fdvr_yn')?document.getElementById('fdvr_yn').value:'No';
+  var d=document.getElementById('dvr-datos');if(d)d.style.display=v==='Sí'?'block':'none';
+}
+function onDiag(){
+  var v=document.getElementById('fdiag')?document.getElementById('fdiag').value:'';
+  var w=document.getElementById('wrap-kasai');
+  if(w)w.style.display=v.indexOf('vías biliares')>=0?'flex':'none';
+}
+function onMomento(){
+  var v=document.getElementById('fmo')?document.getElementById('fmo').value:'';
+  var msgs={pre:'Pretrasplante: paciente en lista de espera o evaluación.',post_inmediato:'Postrasplante inmediato (0–7 días): inducción IS y monitoreo del injerto.',post_temprano:'Postrasplante temprano (>7 días – <1 año): vigilancia de rechazo e infecciones.',post_tardio:'Postrasplante tardío (>1 año): función del injerto, adherencia.',retx:'Retrasplante: documentar causa de fallo del injerto previo.'};
+  var clss={pre:'ctx-pre',post_inmediato:'ctx-post',post_temprano:'ctx-post',post_tardio:'ctx-post',retx:'ctx-retx'};
+  var b=document.getElementById('ctx-box');
+  if(b){b.textContent=msgs[v]||'';b.className='ctx-box '+(clss[v]||'');b.style.display=v?'':'none';}
+  var pre=document.getElementById('sec-pre');if(pre)pre.style.display=(v==='pre'||v==='retx')?'block':'none';
+  var retx=document.getElementById('sec-retx');if(retx)retx.style.display=v==='retx'?'block':'none';
+  var post=document.getElementById('sec-post');if(post)post.style.display=(v&&v!=='pre')?'block':'none';
+  // Punto 1: mutuamente excluyente entre Enfermedad de base (pre/retx) y Tipo de trasplante (post)
+  var esPreORetx=(v==='pre'||v==='retx'||!v);
+  var wrapEnf=document.getElementById('wrap-enfbase');if(wrapEnf)wrapEnf.style.display=esPreORetx?'flex':'none';
+  var tipotx=document.getElementById('wrap-tipotx');if(tipotx)tipotx.style.display=(!esPreORetx)?'flex':'none';
+  var fechatx=document.getElementById('wrap-fechatx');if(fechatx)fechatx.style.display=(!esPreORetx)?'flex':'none';
+  // Actualizar título de la sección 2
+  var sec1Title=document.getElementById('sec1-title');
+  if(sec1Title){
+    sec1Title.textContent='2. '+(esPreORetx?'Enfermedad de base':'Tipo de trasplante');
+    sec1Title.className='sec-lbl '+(esPreORetx?'blue':'green');
+  }
+}
+function onSala(){
+  var v=document.getElementById('fsala')?document.getElementById('fsala').value:'';
+  var w=document.getElementById('fsala-otro-wrap');if(w)w.style.display=v==='otro'?'block':'none';
+}
+function onEval(el){el.className=el.value==='pendiente'?'pend':el.value==='apto'?'apto':'';}
+
+function ftag(e,t){
+  if(e.key!=='Enter')return;e.preventDefault();
+  var i=document.getElementById('fi'+t);var v=i.value.trim();if(!v)return;
+  FT[t].push(v);i.value='';frtags(t);
+}
+function frtags(t){
+  var w=document.getElementById('fw'+t),i=document.getElementById('fi'+t);
+  if(!w||!i)return;
+  while(w.querySelector('.tg'))w.querySelector('.tg').remove();
+  var cls=t==='a'?'t-a':t==='t'?'t-t':'t-i';
+  FT[t].forEach(function(v,j){
+    var d=document.createElement('div');d.className='tg '+cls;
+    d.innerHTML=v+'<span class="tx" onclick="frmtag(\''+t+'\','+j+')">×</span>';
+    w.insertBefore(d,i);
+  });
+}
+function frmtag(t,j){FT[t].splice(j,1);frtags(t);}
+function addCult(){
+  var m=document.getElementById('fcm')?document.getElementById('fcm').value:'';if(!m)return;
+  var r=document.getElementById('fcr')?document.getElementById('fcr').value:'';
+  var g=document.getElementById('fcg')?document.getElementById('fcg').value.trim():'';
+  var f=document.getElementById('fcfecha')?document.getElementById('fcfecha').value:'';
+  var label=(f?'['+f+'] ':'')+m+(r?' — '+r:'')+(g?' ('+g+')':'');
+  FC.push(label);
+  if(document.getElementById('fcm'))document.getElementById('fcm').selectedIndex=0;
+  if(document.getElementById('fcg'))document.getElementById('fcg').value='';
+  if(document.getElementById('fcr'))document.getElementById('fcr').selectedIndex=0;
+  if(document.getElementById('fcfecha'))document.getElementById('fcfecha').value=hoy();
+  var el=document.getElementById('fcl');if(!el)return;
+  el.innerHTML='';FC.forEach(function(c,j){el.innerHTML+='<span class="tg t-c">'+c+'<span class="tx" onclick="rmCult('+j+')">×</span></span>';});
+}
+function rmCult(j){FC.splice(j,1);var el=document.getElementById('fcl');if(!el)return;el.innerHTML='';FC.forEach(function(c,k){el.innerHTML+='<span class="tg t-c">'+c+'<span class="tx" onclick="rmCult('+k+')">×</span></span>';});}
+function addComp(){
+  var f=document.getElementById('fcompf').value,d=document.getElementById('fcompd').value.trim();if(!d)return;
+  COMP.push({fecha:f||hoy(),desc:d});document.getElementById('fcompd').value='';
+  var el=document.getElementById('comp-list');if(!el)return;
+  el.innerHTML='';COMP.forEach(function(c,j){el.innerHTML+='<span class="tg t-a">'+fmtF(c.fecha)+' — '+c.desc+'<span class="tx" onclick="rmComp('+j+')">×</span></span>';});
+}
+function rmComp(j){COMP.splice(j,1);var el=document.getElementById('comp-list');if(!el)return;el.innerHTML='';COMP.forEach(function(c,k){el.innerHTML+='<span class="tg t-a">'+fmtF(c.fecha)+' — '+c.desc+'<span class="tx" onclick="rmComp('+k+')">×</span></span>';});}
+function renderImgList(){
+  var el=document.getElementById('fimg-list');
+  if(!el)return;
+  el.innerHTML='';
+  for (var j = 0; j < IMG.length; j++) {
+    var im = IMG[j];
+    var div = document.createElement('div');
+    div.className = 'img-item ' + (im.resultado === 'Patologico' ? 'img-pato' : 'img-normal');
+    div.innerHTML = '<span style="flex:1;"><strong>' + im.tipo + '</strong> - ' + fmtF(im.fecha) + ' - ' + im.resultado + (im.detalle ? ': ' + im.detalle : '') + '</span><span class="tx" onclick="rmImg(' + j + ')">x</span>';
+    el.appendChild(div);
+  }
+}
+function addImg(){
+  var tipoEl = document.getElementById('fimgtipo');
+  var fechaEl = document.getElementById('fimgfecha');
+  var resultEl = document.getElementById('fimgresult');
+  var detEl = document.getElementById('fimgdet');
+  if(!tipoEl || !resultEl) return;
+  var tipo = tipoEl.value;
+  var resultado = resultEl.value;
+  if(!tipo || !resultado) return;
+  var fecha = fechaEl ? fechaEl.value : '';
+  var detalle = detEl ? detEl.value.trim() : '';
+  IMG.push({tipo:tipo, fecha:fecha || hoy(), resultado:resultado, detalle:detalle});
+  tipoEl.selectedIndex = 0;
+  resultEl.selectedIndex = 0;
+  if(detEl) detEl.value = '';
+  renderImgList();
+}
+function rmImg(j){
+  IMG.splice(j,1);
+  renderImgList();
+}
+function renderMovList(){
+  var el=document.getElementById('mov-list');
+  if(!el)return;
+  el.innerHTML='';
+  var sorted=MOV.slice().sort(function(a,b){return new Date(a.fecha)-new Date(b.fecha);});
+  for(var j=0;j<sorted.length;j++){
+    var mv=sorted[j];
+    var realIdx=MOV.indexOf(mv);
+    var div=document.createElement('div');
+    div.className='mov-item';
+    div.innerHTML='<span style="flex:1;"><strong>'+mv.unidad+'</strong> desde '+fmtF(mv.fecha)+'</span><span class="tx" onclick="rmMov('+realIdx+')">x</span>';
+    el.appendChild(div);
+  }
+}
+function addMov(){
+  var unidadEl=document.getElementById('fmovunidad');
+  var fechaEl=document.getElementById('fmovfecha');
+  if(!unidadEl)return;
+  var unidad=unidadEl.value;
+  if(!unidad)return;
+  var fecha=fechaEl?fechaEl.value:hoy();
+  MOV.push({unidad:unidad,fecha:fecha||hoy()});
+  unidadEl.selectedIndex=0;
+  renderMovList();
+}
+function rmMov(j){
+  MOV.splice(j,1);
+  renderMovList();
+}
+function addFK(){
+  var n=document.getElementById('ftacro')?document.getElementById('ftacro').value:'';if(!n)return;
+  var d=document.getElementById('ftacrod')?document.getElementById('ftacrod').value:'';
+  FKH.push({fecha:hoy(),nivel:n,dosis:d});
+  var el=document.getElementById('ftacro');if(el)el.value='';
+}
+function fg(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+function fsel(id){var el=document.getElementById(id);return el?el.value:'';}
+
+function fguardar(){
+  var nom=fg('fnom');if(!nom){var el=document.getElementById('fnom');if(el)el.focus();return;}
+  var mo=fsel('fmo');
+  var salaRaw=fsel('fsala');
+  var salaFinal=salaRaw==='otro'?fg('fsalaotro'):salaRaw;
+  var existP=EID?PXS.find(function(x){return x.id===EID;}):null;
+  var oldLabHist=existP?existP.lab_history||[]:[];
+  var oldFKH=existP?existP.fk_history||[]:[];
+  var oldComp=existP?existP.complicaciones_post||[]:[];
+  var newLab={fecha:hoy(),bili:fg('fbili'),bili_directa:fg('fbilidirect'),tgo:fg('ftgo'),tgp:fg('ftgp'),ggt:fg('fggt'),tp:fg('ftp'),inr:fg('finr'),alb:fg('falb'),creat:fg('fcreat'),hb:fg('fhb'),hto:fg('fhto'),gb:fg('fgb'),plaq:fg('fplaq'),urea:fg('furea'),afp:fg('fafp')};
+  var hasLab=Object.keys(newLab).slice(1).some(function(k){return newLab[k];});
+  var labHistory=hasLab?oldLabHist.concat([newLab]):oldLabHist;
+  var tacroV=fg('ftacro');
+  var fkFull=oldFKH.concat(FKH);
+  if(tacroV&&!FKH.find(function(f){return f.fecha===hoy();}))fkFull.push({fecha:hoy(),nivel:tacroV,dosis:fg('ftacrod')});
+  var allComp=oldComp.concat(COMP);
+  var evalKeys=['cardio','neumo','nefro','infecto','neuro','orl','oftalmo','salud_mental','s_social','alimentacion','gineco'];
+  var evals={};
+  evalKeys.forEach(function(k){evals['eval_'+k]=fsel('eval_'+k);});
+  var en=fg('fedad'),eu=fsel('fedadu');
+  var p=Object.assign({
+    id:EID||Date.now(),nombre:nom,
+    edad:en?en+' '+eu:'—',edad_n:en,edad_u:eu,
+    peso:fg('fpeso'),diag:fsel('fdiag'),enf_base:fg('fenf'),
+    hc:fg('fhc'),cirugia_previa:fsel('fkasai'),
+    nacionalidad:fg('fnac'),residencia:fsel('fres'),residencia_detalle:fg('fres-ext'),grupo_factor:fsel('fgf'),
+    fecha_ingreso:fg('ffi'),lugar_int:fg('flugar'),sala:salaFinal,
+    momento:mo,
+    motivo:fg('fmot'),
+    prob1:fsel('fprob1'),prob1_det:fg('fprob1d'),
+    prob2:fsel('fprob2'),prob2_det:fg('fprob2d'),
+    prob3:fsel('fprob3'),prob3_det:fg('fprob3d'),
+    plan1:fsel('fplan1'),plan1_det:fg('fplan1d'),
+    plan2:fsel('fplan2'),plan2_det:fg('fplan2d'),
+    plan3:fsel('fplan3'),plan3_det:fg('fplan3d'),
+    barrera_principal:fsel('fbarp'),barrera_secundaria:fsel('fbars'),barrera_terciaria:fsel('fbart'),
+    tipo_tx:fsel('ftipotx'),
+    peld:fg('fpeld'),meld:fg('fmeld'),lista_estado:fsel('flista'),fecha_lista:fg('fflist'),
+    talla:fg('ftalla'),pu:fg('fpu'),dvr_yn:fsel('fdvr_yn'),
+    dvr_familiar:fg('fdvr_fam'),dvr_dni:fg('fdvr_dni'),dvr_hc:fg('fdvr_hc'),
+    dvr_peso:fg('fdvr_peso'),dvr_talla:fg('fdvr_talla'),dvr_imc:fg('fdvr_imc'),
+    dvr_gf:fsel('fdvr_gf'),dvr_grwr:fg('fdvr_grwr'),
+    causa_fallo:fg('fcausa'),fecha_retx:fg('fretxf'),
+    fecha_tx:fg('fftx'),abo:fsel('fabo'),riesgo:fsel('friesgo'),pra:fg('fpra'),dsa:fg('fdsa'),
+    donante:fsel('fdon'),tipo_injerto:fsel('ftinj'),
+    grwr:fg('fgrwr'),peso_explante:fg('fpexpl'),peso_implante:fg('fpimpl'),
+    tif:fg('ftif'),piggy_back:fsel('fpiggy'),portoplastia:fsel('fportop'),
+    graft_art:fsel('fgartf'),graft_ven:fsel('fgvenf'),
+    via_biliar:fg('fviabil'),cobertura:fg('fcob'),
+    mostrarInd:['post_inmediato','post_temprano','retx'].includes(mo),
+    tacro:fg('ftacro'),tacro_obj:fg('ftacroo'),tacro_dosis:fg('ftacrod'),
+    mmf:fsel('fmmf'),cort:fsel('fcort'),mtor:fsel('fmtor'),is_extra:FT.i.slice(),
+    rechazo:fsel('frec'),vascular:fsel('fvas'),biliar:fsel('fbil'),
+    infec:fsel('finf'),ptld:fsel('fptld'),otras:fg('fotras'),
+    bili:newLab.bili||fg('fbili'),bili_directa:newLab.bili_directa,
+    tgo:newLab.tgo,tgp:newLab.tgp,ggt:newLab.ggt,
+    tp:newLab.tp,inr:newLab.inr,alb:newLab.alb,creat:newLab.creat,
+    hb:newLab.hb,hto:newLab.hto,gb:newLab.gb,plaq:newLab.plaq,
+    urea:newLab.urea,afp:newLab.afp,
+    lab_history:labHistory,fk_history:fkFull,complicaciones_post:allComp,imagenes:IMG.slice(),movimientos:MOV.slice(),
+    fecha_inicio_atb:fg('ffatb'),abx:FT.a.slice(),atb:FT.t.slice(),cults:FC.slice(),
+    pcmv:fsel('fpcmv'),ppcp:fsel('fppcp'),paf:fsel('fpaf'),
+    nutri:fsel('fnutri'),diur:fg('fdiur'),vent:fsel('fvent'),hemodi:fsel('fhemo'),
+    obs:fg('fobs'),ts:Date.now()
+  },evals);
+  COMP=[];FKH=[];IMG=[];MOV=[];
+  savePx(p);
+}
+
+// SCORE
+function scoreDetalle(p){
+  var b=parseFloat(p.bili)||0,ir=parseFloat(p.inr)||0,tp=parseFloat(p.tp)||0;
+  var al=parseFloat(p.alb)||0,cr=parseFloat(p.creat)||0,tg=parseFloat(p.tgo)||0;
+  var dp=dias(p.fecha_tx)||0;
+  var s=0;
+  if(b>3)s++;if(b>5)s+=2;if(b>10)s+=2;if(b>20)s+=3;
+  if(ir>1.5)s++;if(ir>2)s+=2;if(ir>3)s+=2;
+  if(tp>0&&tp<50)s+=2;if(al>0&&al<3)s++;if(cr>1)s++;if(cr>2)s+=2;
+  if(tg>500)s++;if(tg>1000)s+=2;
+  var r=p.rechazo||'';
+  if(r==='Agudo leve')s+=2;if(r==='Agudo moderado')s+=4;if(r==='Agudo grave'||r==='Humoral (AMR)')s+=7;if(r==='Crónico / ductopénico')s+=5;
+  if(p.vascular&&p.vascular!=='No')s+=6;if(p.biliar&&p.biliar!=='No')s+=3;
+  var inf=p.infec||'';if(inf==='Bacteriana')s+=2;
+  if(['CMV','EBV','Adenovirus','Viral (otro)'].indexOf(inf)>=0)s+=3;
+  if(inf==='Fúngica'||inf==='Múltiple')s+=5;
+  if(p.estado&&p.estado.indexOf('Inestable')>=0)s+=3;
+  if(p.estado&&p.estado.indexOf('Crítico')>=0)s+=7;
+  var h=p.hemodi||'';if(h&&h!=='No')s+=(h==='Múltiples vasoactivos'?5:3);
+  if(s<=4)return{niv:'Evolución favorable',cls:'b-ok',de:Math.max(3,7-Math.floor(dp/5))};
+  if(s<=10)return{niv:'Complejidad moderada',cls:'b-med',de:Math.max(7,21-Math.floor(dp/3))};
+  if(s<=18)return{niv:'Alta complejidad',cls:'b-mal',de:Math.max(14,45-Math.floor(dp/2))};
+  return{niv:'Crítico',cls:'b-mal',de:null};
+}
+
+// STORAGE
+function lsave(d){try{localStorage.setItem(SK,JSON.stringify(d));}catch(e){}}
+function lload(){try{var d=localStorage.getItem(SK);return d?JSON.parse(d):[];}catch(e){return[];}}
+function psave(d){try{localStorage.setItem(SK+'_p',JSON.stringify(d));}catch(e){}}
+function pload(){try{var d=localStorage.getItem(SK+'_p');return d?JSON.parse(d):[];}catch(e){return[];}}
+pending=pload();
+
+function obUpdate(){
+  var b=document.getElementById('ob');if(!b)return;
+  if(!online){b.textContent='Sin conexión — los cambios se sincronizan al volver la señal.';b.className='offline-bar show';}
+  else if(pending.length){b.textContent=pending.length+' cambio(s) pendiente(s) de sincronizar.';b.className='offline-bar show';}
+  else{b.className='offline-bar';}
+}
+
+var PROTEGIDOS={}; // ids de pacientes guardados localmente que el servidor todavía puede no reflejar
+
+function pull(){
+  if(!online)return;
+  fetch(SU+'?action=list',{cache:'no-store'})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.pacientes){
+      var serverData=d.pacientes;
+      var localData=lload();
+      var serverIds=serverData.map(function(x){return x.id;});
+      Object.keys(PROTEGIDOS).forEach(function(idStr){
+        if(serverIds.indexOf(Number(idStr))>=0 || serverIds.indexOf(idStr)>=0) delete PROTEGIDOS[idStr];
+      });
+      var protegidosFaltantes=localData.filter(function(p){
+        return PROTEGIDOS[p.id] && serverIds.indexOf(p.id)<0;
+      });
+      var merged=serverData.concat(protegidosFaltantes);
+      lsave(merged);PXS=merged;renderSala(merged);dot('ok');
+    }
+  }).catch(function(){dot('er');});
+}
+
+function push(body,cb){
+  fetch(SU,{method:'POST',body:JSON.stringify(body)})
+  .then(function(r){return r.json();})
+  .then(function(resp){if(cb)cb(resp);})
+  .catch(function(){if(cb)cb(null);});
+}
+
+function flush(cb){
+  if(!pending.length||!online){if(cb)cb();return;}
+  var ops=pending.slice();pending=[];psave([]);
+  var i=0;
+  function next(){
+    if(i>=ops.length){if(cb)cb();return;}
+    push(ops[i],function(){i++;next();});
+    i++;
+  }
+  next();
+  obUpdate();
+}
+
+function savePx(p){
+  dot('sy');
+  var data=lload();
+  if(EID)data=data.filter(function(x){return x.id!==EID;});
+  data.push(p);lsave(data);PXS=data;EID=null;
+  renderSala(data);showSala();
+  if(online){
+    PROTEGIDOS[p.id]=true;
+    push({action:'save',paciente:p},function(resp){
+      if(resp&&resp.ok){dot('ok');}else{dot('er');}
+      pull();
+    });
+  }else{
+    pending.push({action:'save',paciente:p});psave(pending);obUpdate();dot('of');
+  }
+}
+
+function delPx(id){
+  if(!confirm('¿Eliminar este paciente?'))return;
+  var data=lload().filter(function(p){return p.id!==id;});
+  lsave(data);PXS=data;renderSala(data);showSala();
+  if(online)push({action:'delete',id:id},function(){pull();});
+  else{pending.push({action:'delete',id:id});psave(pending);obUpdate();}
+}
+
+function darAlta(id){
+  var p=PXS.find(function(x){return x.id===id;});if(!p)return;
+  if(!confirm('¿Dar de alta a '+p.nombre+'?\nEl paciente se archivará y no aparecerá más en el pase activo.'))return;
+  var pAlta=Object.assign({},p,{alta:true,fecha_alta:hoy()});
+  try{var altas=JSON.parse(localStorage.getItem(SK+'_altas')||'[]');altas.push(pAlta);localStorage.setItem(SK+'_altas',JSON.stringify(altas));}catch(e){}
+  var data=lload().filter(function(x){return x.id!==id;});
+  lsave(data);PXS=data;renderSala(data);showSala();
+  if(online){push({action:'save_alta',paciente:pAlta},function(){});push({action:'delete',id:id},function(){pull();});}
+  else{pending.push({action:'delete',id:id});psave(pending);obUpdate();}
+}
+
+function diasParaAlta(p) {
+  var t = getTipo(p);
+  var dp = t !== 'pre' ? dias(p.fecha_tx) : null;
+
+  if (t === 'pre' || t === 'retx') {
+    return { dias: null, texto: 'En lista de espera', clase: 'dpa-lista', motivos: [] };
+  }
+
+  var base = 0;
+  if (p.momento === 'post_inmediato') {
+    var diasRestantes = Math.max(0, 25 - (dp || 0));
+    base = diasRestantes;
+  } else if (p.momento === 'post_temprano') {
+    base = 14;
+  } else if (p.momento === 'post_tardio') {
+    base = 7;
+  }
+
+  var extra = 0;
+  var motivos = [];
+
+  var bil = parseFloat(p.bili) || 0;
+  var inr = parseFloat(p.inr) || 1;
+  var cr  = parseFloat(p.creat) || 0;
+
+  if (bil > 10) { extra += 14; motivos.push('colestasis severa'); }
+  else if (bil > 5) { extra += 7; motivos.push('colestasis moderada'); }
+
+  if (inr > 2) { extra += 7; motivos.push('coagulopatía'); }
+  if (cr > 2)  { extra += 7; motivos.push('insuficiencia renal'); }
+
+  var rec = (p.rechazo || '').toLowerCase();
+  if (rec.indexOf('moderado') >= 0) { extra += 14; motivos.push('rechazo moderado'); }
+  else if (rec.indexOf('grave') >= 0 || rec.indexOf('humoral') >= 0) { extra += 30; motivos.push('rechazo grave'); }
+  else if (rec.indexOf('crónico') >= 0 || rec.indexOf('cronico') >= 0) { extra += 30; motivos.push('rechazo crónico'); }
+  else if (rec.indexOf('leve') >= 0) { extra += 7; motivos.push('rechazo leve'); }
+
+  var vas = (p.vascular || '').toLowerCase();
+  if (vas && vas !== 'no' && vas !== '') {
+    if (vas.indexOf('trombosis') >= 0) { extra += 21; motivos.push('trombosis vascular'); }
+    else { extra += 14; motivos.push('complicación vascular'); }
+  }
+
+  var inf = (p.infec || '');
+  if (inf && inf !== 'No') {
+    if (inf === 'Múltiple' || inf === 'Fúngica') { extra += 21; motivos.push('infección compleja'); }
+    else { extra += 10; motivos.push('infección activa'); }
+  }
+
+  var bil2 = (p.biliar || '').toLowerCase();
+  if (bil2 && bil2 !== 'no' && bil2 !== '') { extra += 14; motivos.push('comp. biliar'); }
+
+  var ptld = (p.ptld || '').toLowerCase();
+  if (ptld && ptld !== 'no' && ptld !== '') { extra += 21; motivos.push('PTLD'); }
+
+  var est = (p.estado || '').toLowerCase();
+  if (est.indexOf('crítico') >= 0) { extra += 30; motivos.push('estado crítico'); }
+  else if (est.indexOf('inestable') >= 0) { extra += 14; motivos.push('inestable'); }
+
+  if (p.dias_alta_manual !== undefined && p.dias_alta_manual !== null && p.dias_alta_manual !== '') {
+    return {
+      dias: parseInt(p.dias_alta_manual),
+      texto: parseInt(p.dias_alta_manual) + ' días (estimado médico)',
+      clase: 'dpa-manual',
+      motivos: []
+    };
+  }
+
+  var total = base + extra;
+  total = Math.max(1, total);
+
+  var clase = total <= 7 ? 'dpa-ok' : total <= 21 ? 'dpa-med' : 'dpa-mal';
+  var texto = total + ' días estimados para el alta';
+
+  return { dias: total, texto: texto, clase: clase, motivos: motivos };
+}
+
+function guardarDPA(id){
+  var val=document.getElementById('dpa-edit')?document.getElementById('dpa-edit').value:'';
+  var p=PXS.find(function(x){return x.id===id;});
+  if(!p)return;
+  p.dias_alta_manual=val?parseInt(val):null;
+  p.ts=Date.now();
+  var data=lload();
+  var idx=-1;
+  for(var i=0;i<data.length;i++){if(data[i].id===id){idx=i;break;}}
+  if(idx>=0)data[idx]=p; else data.push(p);
+  lsave(data);PXS=data;
+  if(online)push({action:'save',paciente:p},function(){pull();});
+  renderDet(p);
+}
+
+function forceSync(){
+  setTab('t-sync');dot('sy');
+  flush(function(){pull();setTimeout(function(){setTab('t-sala');},600);});
+}
+
+function dot(s){
+  var el=document.getElementById('sdot'),sl=document.getElementById('slbl');
+  var colors={ok:'#27a',sy:'#BA7517',er:'#E24B4A',of:'#aaa'};
+  if(el)el.style.background=colors[s]||'#aaa';
+  if(sl)sl.textContent=s==='ok'?'OK '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):s==='sy'?'Sincronizando...':s==='er'?'Error servidor':'Sin conexión';
+}
+
+// START
+
+// Pre-loaded patient data (pase 26/05/2026)
+var PRELOAD = [{"id":2001,"nombre":"Ledesma Kiara","edad_n":"3","edad_u":"años","peso":"13.5","diag":"Hepatitis autoinmune (HAI)","enf_base":"HAI — Síndrome hepatopulmonar","sala":"CIM 61","lugar_int":"92","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-04-26","fecha_tx":"2026-04-26","rechazo":"No","vascular":"Estenosis VSH (sospecha)","biliar":"Estenosis biliar","infec":"Bacteriana","tacro":"11.3","tacro_obj":"9","abx":["Meropenem","Deltisona 4mg","MMF 180/180","AAS","Dipiridamol"],"bili":"15.56","tgo":"148","tgp":"181","ggt":"268","obs":"POP Tx hepático DC HE. HAI. Síndrome hepatopulmonar. CMV+/+. 22/5 Bx Indeterminada. FK 11.3\n\n🟠 PRONÓSTICO: Alta complejidad — 30-60d","pendientes":"Labo martes — AngioTAC — RNM SNC","ts":1748300002001,"edad":"3 años"},{"id":2002,"nombre":"Caracila Keyla","edad_n":"4","edad_u":"años","peso":"12.2","diag":"Atresia de vías biliares","enf_base":"AVB SK — PTLD EBV+ gástrico — Tumor músculo liso colon/recto EBV+","sala":"CIM 61","lugar_int":"90","momento":"post_temprano","estado":"Inestable","fecha_ingreso":"2026-04-30","fecha_tx":"2023-04-01","ptld":"Confirmado — en tratamiento","infec":"EBV","tacro":"FK SUSPENDIDA","cort":"Mantenimiento","obs":"Tx 4/2023. PTLD EBV+. Masa hepática seno cavernoso. LCR EBV+.\nTto: Mero/Levo/Linezolid/Isoniazida — Anfo — Siro 0.8/0.8\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Labo martes — PET — RMN corporal total","ts":1748300002002,"edad":"4 años"},{"id":2003,"nombre":"Olivera Max","edad_n":"3","edad_u":"años","peso":"9.6","diag":"Hepatoblastoma","enf_base":"Hepatoblastoma — Recidiva tumoral — Disfunción injerto","sala":"CIM 61","lugar_int":"86","momento":"post_temprano","estado":"Inestable","fecha_ingreso":"2026-05-15","fecha_tx":"2025-11-01","rechazo":"Moderado (pulsos EV 29/4)","obs":"Tx DVR II/III. Hepatoblastoma AR MTS pulmonares. Shock séptico/cardiogénico 8/5. FA 39.\nTto: AYUNO — Sirolimus 1mg — Mero/Ganciclo\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Labo martes — TAC Tórax 9am — AngioRNM SNC/RNM abd — Hemostasia 28/5","ts":1748300002003,"edad":"3 años"},{"id":2004,"nombre":"Ramírez Máximo","edad_n":"8","edad_u":"meses","peso":"5.27","diag":"Atresia de vías biliares","enf_base":"AVB — Colostomía EVR — Trombosis VP — Estenosis arterial","sala":"CIM 61","lugar_int":"82","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-01-01","fecha_tx":"2026-01-01","vascular":"Estenosis arterial (sin conducta Qx)","biliar":"Fístula / bilioma","infec":"Fúngica","tacro":"6","abx":["FK 0.5","CAAM","Linezolid","Vitamina K"],"obs":"Tx 1/2026 DVR. AVB. Colostomía. Trombosis VP x2. Shock séptico 25/5. Candidiasis esofágica.\n23/5: SA/38/30/743/354 — FK 6 — Alb 3.6\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Control porta — evolución fístula enterocutánea","ts":1748300002004,"edad":"8 meses"},{"id":2005,"nombre":"Mikitiuk Enzo","edad_n":"1","edad_u":"años","peso":"11.24","diag":"Otro","enf_base":"Quiste de colédoco — ABO incompatible — Germen MR","sala":"CIM 61","lugar_int":"83","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2025-07-04","fecha_tx":"2025-07-04","vascular":"Estenosis arteria hepática","biliar":"Estenosis biliar","infec":"Múltiple","abx":["Cefta-Avibactam","Aztreonam","Metronidazol"],"obs":"Tx 4/7/25. ABO incompatible. K. Oxytoca NDM BLEE. C. Parapsilosis 20/4. Múltiples drenajes.\n21/5: 2990/89000/8.8\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Laboratorio","ts":1748300002005,"edad":"1 años"},{"id":2006,"nombre":"Mercante Thian","edad_n":"3","edad_u":"años","diag":"Hepatitis autoinmune (HAI)","enf_base":"Hepatitis aguda grave — Falla resuelta — CD8","sala":"CIM 61","lugar_int":"74","momento":"pre","estado":"Compensado","fecha_ingreso":"2026-05-01","tgo":"228","ggt":"690","obs":"MI Hepatitis aguda Grave. RESUELTA. Timoglobulina cumplida. Tto: Corticoides\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"Control evolución","ts":1748300002006,"edad":"3 años"},{"id":2007,"nombre":"Ferreyra Jonas","edad_n":"4","edad_u":"años","peso":"16","diag":"Hepatitis autoinmune (HAI)","enf_base":"Hepatitis severa","sala":"CIM 61","lugar_int":"75","momento":"pre","estado":"Inestable","fecha_ingreso":"2026-05-01","tgo":"483","ggt":"270","obs":"Hepatitis severa. Timoglobulina 7-11/5. Bx 20/5. Deltisona 1mg/kg\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"Control post-biopsia","ts":1748300002007,"edad":"4 años"},{"id":2008,"nombre":"Denysiuk Estefania","edad_n":"12","edad_u":"años","peso":"34.4","diag":"Otra enfermedad metabólica","enf_base":"ERCT 2° poliquistosis renal + Fibrosis Hepática Congénita","sala":"CIM 61","lugar_int":"70","momento":"post_temprano","estado":"Inestable","fecha_ingreso":"2026-04-07","fecha_tx":"2026-04-07","rechazo":"Moderado","vascular":"Estenosis VSH + AH + VB","biliar":"Estenosis biliar","infec":"Fúngica","tacro":"9.1","abx":["FK XL 9mg","MMF 180/12hs","Deltisona 6","Anfotericina","Pentamidina"],"obs":"Tx hepatorrenal 7/4/26. RAC moderado. NTA severa. ITU Cándida tropicalis/Trichosporon. HTA.\n22/5: FK 9.1 — SA/26/45/293/68\nPEND IV: 28/5 portografía — 10/6 VSH — 30/6 AH\n\n🟠 PRONÓSTICO: Alta complejidad — 30-60d","pendientes":"Retiro Doble J 26/5 — 28/5 portografía — 10/6 VSH — 30/6 AH","ts":1748300002008,"edad":"12 años"},{"id":2009,"nombre":"Sotelo Jairo","edad_n":"9","edad_u":"meses","diag":"Atresia de vías biliares","enf_base":"AVB — Bacteriemia Klebsiella — Cándida","sala":"CIM 61","lugar_int":"62","momento":"post_inmediato","estado":"Compensado","fecha_ingreso":"2026-04-16","fecha_tx":"2026-04-16","rechazo":"Agudo leve","infec":"Bacteriana","tacro":"9.5","abx":["FK 0.7/0.7","ATB","Antifúngico"],"obs":"POP Tx 16/4. Bacteriemia Klebsiella + Cándida. GGT 260 en descenso (800).\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Control GGT — cultivos","ts":1748300002009,"edad":"9 meses"},{"id":2010,"nombre":"Santana Agar","edad_n":"2","edad_u":"años","peso":"7.84","diag":"Síndrome de Alagille","enf_base":"Sme Alagille — Tetralogía de Fallot — Resección ID 5cm","sala":"CIM 61","lugar_int":"58","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-05-14","fecha_tx":"2026-05-14","vascular":"Estenosis vena porta","tacro":"16.5","abx":["Meropenem"],"obs":"Tx DVR (Hermano) Seg II/III CMV+/+. Resección 5cm ID. Sme Alagille. Tetralogía Fallot.\n23/5: FK 16.5 — Alb 2.9 — estenosis VP\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Labo martes CV — AngioRNM — AngioTAC — estenosis VP","ts":1748300002010,"edad":"2 años"},{"id":2011,"nombre":"Jofre Gonzalo","edad_n":"8","edad_u":"años","diag":"Hepatitis autoinmune (HAI)","enf_base":"HAI — Tx 6/5/2026","sala":"CIM 61","lugar_int":"48","momento":"post_inmediato","estado":"Estable","fecha_ingreso":"2026-05-06","fecha_tx":"2026-05-06","tacro":"6.2","tacro_obj":"9","mmf":"Sí — dosis habitual","cort":"Mantenimiento","obs":"Tx 06/05/2026. HAI. CMV+/+. Eco VB 2.5mm. Inicio tolerancia oral.\n23/5: FK 6.2 — SA/16/23/80/45\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"Control evolución — tolerancia oral","ts":1748300002011,"edad":"8 años"},{"id":2012,"nombre":"Alarcón Mikaias","edad_n":"6","edad_u":"meses","peso":"5.33","diag":"Atresia de vías biliares","enf_base":"AVB s/Kasai — BCGitis — Chiari I","sala":"CIM 61","lugar_int":"44","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-03-12","fecha_tx":"2026-03-12","rechazo":"Agudo grave","vascular":"Estenosis vena porta","infec":"Fúngica","tacro":"6.2","abx":["Anfotericina","PTZ","Levofloxacina","Linezolid","Etambutol"],"pcmv":"Valganciclovir","obs":"Tx 12/03/26 DVR. RAC SEVERO 20/5. Estenosis VP. Peritonitis Cándida. IRAB.\n22/5: FK 6.2 — SA/96/193/644/125\n\n🟠 PRONÓSTICO: Alta complejidad — 30-60d","pendientes":"Angioplastia VP — Chiari I turno — control RAC severo","ts":1748300002012,"edad":"6 meses"},{"id":2013,"nombre":"Luque Naomi","edad_n":"4","edad_u":"meses","diag":"Atresia de vías biliares","enf_base":"AVB — ACLF — Sin donante vivo","sala":"CIM 61","lugar_int":"45","momento":"pre","estado":"Inestable","fecha_ingreso":"2026-05-01","peld":"21","lista_estado":"Activo","bili":"25.9","bili_directa":"18.6","obs":"AVB. PELD 21/38 A. ACLF. SIN DONANTE VIVO.\n23/5 HMC+ cocos. PTZ/VANCO\n\n🟠 PRONÓSTICO: Alta complejidad — 30-60d","pendientes":"Cultivos — paracentesis — evolución ACLF","ts":1748300002013,"edad":"4 meses"},{"id":2014,"nombre":"Jara Mateo","edad_n":"11","edad_u":"años","diag":"Hepatitis autoinmune (HAI)","enf_base":"HAI — ACLF — Encefalopatía","sala":"CIM 61","lugar_int":"45","momento":"pre","estado":"Inestable","fecha_ingreso":"2026-04-08","peld":"17","lista_estado":"Activo","bili":"2.4","obs":"PELD 17/37. Cirrosis HAI. MI encefalopatía. Amonio 272. Deltisona 4/PTZ\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"HMC resultado — control amonio","ts":1748300002014,"edad":"11 años"},{"id":2015,"nombre":"Olea Lionel","edad_n":"3","edad_u":"años","peso":"18","diag":"Síndrome de Budd-Chiari","enf_base":"Re-Tx 29/3/25 por TAH — Estenosis VSH — SAE","sala":"CIM 61","lugar_int":"34","momento":"retx","estado":"Inestable","fecha_ingreso":"2026-05-18","fecha_tx":"2025-03-29","causa_fallo":"Trombosis arteria hepática","vascular":"Estenosis VSH","infec":"Viral (otro)","abx":["PTZ","AUDC","Espironolactona"],"obs":"Re-Tx 29/3/25. POP angioplastia VSH 18/5. SAE. Metaneumo VSNF.\nPEND: VEDA VCC hoy\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"VEDA VCC hoy — control SAE","ts":1748300002015,"edad":"3 años"},{"id":2016,"nombre":"Acebedo Melody","edad_n":"9","edad_u":"años","diag":"Atresia de vías biliares","enf_base":"AVB — Tx 9/18 — POP colangioplastia","sala":"CIM 61","lugar_int":"37","momento":"post_tardio","estado":"Compensado","fecha_ingreso":"2026-05-18","fecha_tx":"2018-09-01","biliar":"Estenosis biliar","tacro":"0.5","abx":["PTZ","FK 0.5"],"obs":"POP colangioplastia. Drenaje EI ABIERTO 21/5.\n23/5: FK 0.5 — Alb 3.89\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"Labo martes — control drenaje EI","ts":1748300002016,"edad":"9 años"},{"id":2017,"nombre":"Ríos Emanuel","edad_n":"16","edad_u":"años","peso":"30.9","diag":"Hepatitis autoinmune (HAI)","enf_base":"HAI — ACV hemorrágico — Trombosis AH","sala":"CIM 61","lugar_int":"37","momento":"post_temprano","estado":"Inestable","fecha_ingreso":"2026-02-25","fecha_tx":"2026-02-25","vascular":"Trombosis arteria hepática (8/3 sin posibilidad Qx)","tacro":"9.4","abx":["FK XL 3","Deltisona 4","Ondansetrón","Domperidona"],"obs":"TX 2/26. ACV hemorrágico 3/3. Trombosis AH sin posibilidad Qx. Reactivación CMV 27/4.\n21/5: FK 9.4 — SA/38/43/116/14\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Control CMV — rehabilitación motora","ts":1748300002017,"edad":"16 años"},{"id":2018,"nombre":"Palacios Laila","edad_n":"8","edad_u":"meses","peso":"3.25","diag":"Atresia de vías biliares","enf_base":"AVB — Sme West — CMV congénito — Estenosis VP","sala":"CIM 61","lugar_int":"","momento":"post_temprano","estado":"Compensado","fecha_ingreso":"2025-12-01","fecha_tx":"2025-12-01","vascular":"Estenosis vena porta","infec":"CMV","tacro":"4.9","obs":"Tx 12/2025. Sme West. DNT crónica. CMV congénito. Estenosis VP.\n21/5: FK 4.9 — CMV 3.23\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"IV VP — neurología — posible alta Tucumán","ts":1748300002018,"edad":"8 meses"},{"id":2019,"nombre":"Ojeda Tania","edad_n":"15","edad_u":"años","diag":"Hepatitis autoinmune (HAI)","enf_base":"HAI — Estenosis severa anastomosis VB","sala":"CIM 62","lugar_int":"","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-03-01","fecha_tx":"2026-03-01","biliar":"Estenosis biliar","infec":"Bacteriana","tacro":"FK XL 8","abx":["MICO 360/360","FK XL 8","Hidroaltesona","PTZ"],"obs":"Tx 3/26 HAI. Influenza A + sospecha colangitis. Estenosis severa VB pendiente resolución.\nGGT 100 mejorado.\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Resolución estenosis VB — control Influenza A","ts":1748300002019,"edad":"15 años"},{"id":2020,"nombre":"Cardona Cataleya","edad_n":"3","edad_u":"años","diag":"Atresia de vías biliares","enf_base":"AVB — Tx 2023 — Hemorragia digestiva — Influenza A","sala":"CIM 42","lugar_int":"","momento":"post_tardio","estado":"Inestable","fecha_ingreso":"2026-05-20","fecha_tx":"2023-01-01","vascular":"Estenosis AH/VB","biliar":"Estenosis biliar","infec":"Viral (otro)","tacro":"4.7","abx":["Oseltamivir","PTZ","FK 0.5","Octreótide"],"obs":"Tx 2023 AVB. Influenza A + hemorragia digestiva. Melena 24/5. TGR. Octreótide.\nPEND: VEDA\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"VEDA urgente — control melena","ts":1748300002020,"edad":"3 años"},{"id":2021,"nombre":"Villar Vita","edad_n":"1","edad_u":"años","diag":"Atresia de vías biliares","enf_base":"AVB s/Kasai — DVR 10/2025 — Primoinfección CMV — Bacteriemia","sala":"CIM 42","lugar_int":"","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-05-01","fecha_tx":"2025-10-01","infec":"Múltiple","tacro":"1.0","abx":["FK 1/0.5mg","Cefalotina","Valganciclovir"],"obs":"Thi DVR 10/2025. Primoinfección CMV 3.7 log. Bacteriemia SAMS/Klebsiella/Enterococo.\nGGT 100. Hptg normal.\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Control CMV — cultivos — TVP femoral","ts":1748300002021,"edad":"1 años"},{"id":2022,"nombre":"Ferrari Lautaro","edad_n":"5","edad_u":"años","diag":"Otro","enf_base":"Cavernoma/HTP — Esplenectomía 21/5 — Sme genético no caracterizado","sala":"UCI 45","lugar_int":"45","momento":"pre","estado":"Inestable","fecha_ingreso":"2026-05-25","obs":"Esplenectomía 21/5. Cavernoma/HTP. Fiebre. PTZ 25/5. Eco: líquido subfrénico izq. PLQ 247000.\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"Cultivos — control post-esplenectomía","ts":1748300002022,"edad":"5 años"},{"id":2023,"nombre":"Clemente Mariela","edad_n":"12","edad_u":"años","diag":"Hepatitis autoinmune (HAI)","enf_base":"Insuficiencia hepática reagudizada — Encefalopatía séptica","sala":"UCI 45","lugar_int":"45","momento":"pre","estado":"Crítico (UCI/UTIP)","fecha_ingreso":"2026-05-24","bili":"10","inr":"3","alb":"2","obs":"IH reagudizada. Encefalopatía séptica. Intubada. Amonio 373. RIN 3. Alb 2. PLQ 51000.\nTto: Deltisona 20mg/día\n\n🟠 PRONÓSTICO: Alta complejidad — 30-60d","pendientes":"Estabilización hemodinámica — control encefalopatía","ts":1748300002023,"edad":"12 años"},{"id":2024,"nombre":"Curruhinca Justina","edad_n":"1","edad_u":"años","peso":"8.1","diag":"Atresia de vías biliares","enf_base":"AVB — Linfoma difuso Cel B — CHOP","sala":"CIM 73","lugar_int":"73","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-04-19","fecha_tx":"2025-10-01","ptld":"Confirmado — en tratamiento","infec":"Bacteriana","obs":"Tx 10/25 AVB. Linfoma Cel B. CHOP último 15/5. Neutropenia febril. Rhino+.\nHptg normal.\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Control post-CHOP — neutropenia","ts":1748300002024,"edad":"1 años"},{"id":2025,"nombre":"Agüero Florencia","edad_n":"15","edad_u":"años","diag":"Hepatitis autoinmune (HAI)","enf_base":"HAI — Tx 15/5","sala":"UCI 44","lugar_int":"44","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2026-05-15","fecha_tx":"2026-05-15","tacro":"7","obs":"Tx 15/5 HAI. VNI. Eco 24/5 VB no dilatada. FK 7. GGT 300 mejorando.\n\n🟢 PRONÓSTICO: Evolución favorable — 7-14d","pendientes":"Destete VNI — control injerto","ts":1748300002025,"edad":"15 años"},{"id":2026,"nombre":"Arias Tifany","edad_n":"16","edad_u":"años","diag":"Otro","enf_base":"Tx 2011 — Cirrosis biliar — Influenza A — Pancitopenia","sala":"CIM 74","lugar_int":"74","momento":"post_tardio","estado":"Inestable","fecha_ingreso":"2026-05-20","fecha_tx":"2011-01-01","infec":"Viral (otro)","tacro":"FK XL 2","abx":["Oseltamivir","PTZ","FK XL2"],"obs":"Tx 2011. Crisis asmática + Influenza A. Pancitopenia. Hptg pendiente.\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Hptg pendiente — control Influenza A","ts":1748300002026,"edad":"16 años"},{"id":2027,"nombre":"Davila Emiliano","edad_n":"1","edad_u":"años","peso":"9.6","diag":"Atresia de vías biliares","enf_base":"AVB — Linfoma Cel B 12/25 — Shock séptico","sala":"CIM 74","lugar_int":"74","momento":"post_inmediato","estado":"Inestable","fecha_ingreso":"2025-09-01","fecha_tx":"2025-09-01","ptld":"Confirmado — en tratamiento","rechazo":"Agudo leve","infec":"Bacteriana","tacro":"FK nivel pend","abx":["PTZ","Hidroaltesona"],"obs":"Tx 9/25 AVB. Linfoma Cel B. 6 CHOP último 14/5. Shock séptico. Fiebre IS.\nHptg normal.\n\n🟡 PRONÓSTICO: Complejidad moderada — 14-30d","pendientes":"Resultado HMC — control post-CHOP","ts":1748300002027,"edad":"1 años"}];
+try {
+  var existing = localStorage.getItem('pase_v8');
+  var existingData = existing ? JSON.parse(existing) : [];
+  var existingIds = existingData.map(function(p){return p.id;});
+  var toAdd = PRELOAD.filter(function(p){return existingIds.indexOf(p.id)<0;});
+  if(toAdd.length > 0){
+    var merged = existingData.concat(toAdd);
+    localStorage.setItem('pase_v8', JSON.stringify(merged));
+  } else if(existingData.length === 0) {
+    localStorage.setItem('pase_v8', JSON.stringify(PRELOAD));
+  }
+} catch(e) {}
+
+
+function showGuia(){
+  ['pnl-sala','pnl-det','pnl-form'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('pnl-guia').style.display='';
+  setTab('t-guia');
+  window.scrollTo(0,0);
+}
+
+var PROTOCOLOS={};
+PROTOCOLOS.ramct={title:'Rechazo Agudo (RAMCT) — Garrahan',html:'<div class="proto-h">Prevalencia: 25-50% Tx pediatricos. Diagnostico (Banff): inflamacion portal mixta + inflamacion conductos biliares + endoteliolitis.</div><div class="proto-box ok"><b>A. Leve sin disfuncion:</b> FK 6-9 ng/mL x3m. Prednisona VO: &lt;20kg: 4mg/d · ≥20kg: 8mg/d x3m.</div><div class="proto-box warning"><b>B. Leve con disfuncion:</b> FK 9-12 ng/mL. Metilprednisolona EV 10mg/kg/d x3 dias. Prednisona VO segun peso x3m.</div><div class="proto-box danger"><b>C. Moderado-Severo:</b> FK 9-12 ng/mL. MP EV 10mg/kg/d x3d. MMF: 10mg/kg/dosis c/12h x2sem → 40mg/kg/d. Profilaxis P.jirovecii y ulcera gastrica.</div><div class="proto-box danger"><b>D. Corticorresistente</b> (sin reduccion ≥50% transaminasas tras 3° pulso):<br>Rebiopsia + DSA single antigen. Reducir FK 4-6 ng/mL. Timoglobulina 1mg/kg/d x7 dias. Profilaxis CMV, hongos y P.jirovecii.</div>'};
+PROTOCOLOS.tah={title:'Trombosis Arteria Hepatica (TAH)',html:'<div class="proto-box danger"><b>EMERGENCIA QUIRURGICA</b> — Prevalencia 5-10%. Sin tratamiento: perdida del injerto 80-90%.</div><div class="proto-h">Diagnostico</div><div class="proto-box">Eco Doppler: patron tardus-parvus, IR &lt;0.5 → TC trifasica → Angiografia DSA (confirmatorio)</div><div class="proto-h">Manejo segun presentacion</div><div class="proto-box warning"><b>Estenosis &gt;50%:</b> angioplastia con balon + anticoagulacion x6 meses</div><div class="proto-box danger"><b>Trombosis temprana (&lt;48h):</b> trombectomia + anticoagulacion x6 meses</div><div class="proto-box danger"><b>Con falla del injerto, sepsis o fistula biliar:</b> RETRASPLANTE URGENTE → inscribir Emergencia Nacional</div><div class="proto-box danger"><b>Trombosis tardia con colangiopatia:</b> retrasplante programado</div>'};
+PROTOCOLOS.tpp={title:'Trombosis Portal Post-Tx (TPP)',html:'<div class="proto-box danger">Prevalencia: 5-15% pediatricos. Forma temprana (&lt;30 dias): perdida del injerto &gt;50% sin tratamiento.</div><div class="proto-h">Diagnostico</div><div class="proto-box">Eco Doppler portal: disminucion o ausencia de flujo → TC trifasica con reconstruccion 3D</div><div class="proto-h">Manejo</div><div class="proto-box warning"><b>Estenosis portal:</b> portoplastia con balon + anticoagulacion x6 meses. Recurrencia tras 2 dilataciones → stent</div><div class="proto-box danger"><b>Trombosis temprana (&lt;48h):</b> trombectomia quirurgica</div><div class="proto-box danger"><b>Con falla del injerto:</b> retrasplante urgente</div>'};
+PROTOCOLOS.cmv={title:'Infeccion por CMV',html:'<div class="proto-box">Prevalencia: 20-30% Tx pediatricos. Mortalidad ≈10%. Tiempo: primeros 3 meses post-Tx.</div><div class="proto-h">Diagnostico</div><div class="proto-box">PCR cuantitativa en plasma <b>&gt;5000 UI/mL</b>. Biopsia con inmunohistoquimica (cuerpos de inclusion).</div><div class="proto-h">Tratamiento</div><div class="proto-box warning"><b>Ganciclovir IV:</b> 10mg/kg/dia c/12h por ≥2 semanas hasta mejoria clinica y negativizacion de 2 cargas virales consecutivas.<br>Monitoreo semanal: carga viral, leucocitos, plaquetas, creatinina.<br>NO reducir dosis por leucopenia o trombocitopenia. Ajustar a funcion renal.</div><div class="proto-box"><b>Transicion a Valganciclovir VO:</b> 900mg c/12h tras mejoria clinica.</div><div class="proto-box danger"><b>CMV refractario</b> (sin descenso &gt;1 log en 2 sem):<br>Solicitar mutaciones UL97 y UL54 (ANLIS-Malbran). Foscarnet si resistencia confirmada.</div>'};
+PROTOCOLOS.ptld={title:'PTLD — Sindrome Linfoproliferativo',html:'<div class="proto-box danger">Prevalencia: 5-10%. Mortalidad ≈40%. 80% casos VEB+ en 1° año post-Tx.</div><div class="proto-h">Clinica</div><div class="proto-box">Fiebre &gt;3d sin foco · Perdida de peso · Nodal: hipertrofia amigdalas, adenomegalias, visceromegalias · Extranodal: citopenia, hepatitis (33%), ascitis, neumonitis, encefalitis</div><div class="proto-h">Diagnostico</div><div class="proto-box">Hemograma: &gt;5% linfocitos atipicos. Anti-CD20. LDH. PCR VEB en plasma. PET-TC para estadificacion. Biopsia tumoral (CD20 y EBER).</div><div class="proto-h">Factores de mal pronostico</div><div class="proto-box warning">Inicio tardio (&gt;1 año) · Compromiso multiorganico · LDH ≥1000 UI/L · PTLD monomofico EBV negativo · Sin respuesta a RIS en 4 semanas</div><div class="proto-h">Manejo</div><div class="proto-box"><b>1.</b> Reducir inmunosupresion (RIS)</div><div class="proto-box warning"><b>2. PTLD monomofica B CD20+:</b> Rituximab EV 375 mg/m² semanal x3-4 dosis (goteo lento 4-6h). Premedicacion: acetaminofen + difenhidramina.</div><div class="proto-box danger"><b>3. Burkitt, Linfoma T o Hodgkin:</b> quimioterapia multidroga</div>'};
+PROTOCOLOS.biliar={title:'Complicaciones Biliares Post-Tx',html:'<div class="proto-h">Fistula Biliar — Prevalencia ≈15% (predominio 1° mes)</div><div class="proto-box warning"><b>Manejo:</b><br>1. Verificar permeabilidad arteria hepatica (Eco Doppler)<br>2. Si permeable + fistula anastomotica:<br>   • Receptor &gt;40 kg: CPRE con esfinterotomia ± stent<br>   • &lt;40 kg: drenaje transhepatico percutaneo<br>3. Trombosis arterial → evaluar retrasplante</div><div class="proto-h">Estenosis Biliar — Prevalencia ≈35% (primeros 6 meses)</div><div class="proto-box warning"><b>Manejo:</b><br>1. Confirmar permeabilidad arteria hepatica<br>2. Si permeable:<br>   • Coledoco-coledoco + &gt;40 kg: CPRE dilatacion balon ± stent<br>   • Anastomosis biliodigestiva: drenaje percutaneo x6 meses<br>3. Fracaso → reconstruccion quirurgica biliar<br>4. Trombosis arterial o colangiopatia isquemica → retrasplante</div><div class="proto-box"><b>AUDC:</b> 30 mg/kg/dia VO c/12h (max 450mg c/12h)</div>'};
+PROTOCOLOS.profilaxis={title:'Profilaxis Post-Tx Inmediato — Garrahan',html:'<div class="proto-h">Infecciosa</div><table class="drug-table"><tr><th>Tipo</th><th>Farmaco</th><th>Dosis</th><th>Duracion</th></tr><tr><td>Bacteriana</td><td>Pip-Tazo</td><td>300 mg/kg/dia EV c/6h</td><td>24-48h</td></tr><tr><td>P. jirovecii</td><td>TMP-SMX</td><td>5 mg/kg/dosis TMP 3x/sem</td><td>6 meses</td></tr><tr><td>CMV D+/R-</td><td>Ganciclovir → Valganciclovir</td><td>5mg/kg c/12h → 900mg/d</td><td>3-6 meses</td></tr><tr><td>Antifungica alto riesgo</td><td>Anidulafungina</td><td>Carga 3mg/kg → 1.5mg/kg/d</td><td>7-14 dias</td></tr><tr><td>Antifungica estandar</td><td>Fluconazol</td><td>6-12 mg/kg/dia</td><td>7 dias</td></tr></table><div class="proto-h">Antitrombótica</div><div class="proto-box">• ATIII: 50 UI/kg EV al cierre; repetir si &lt;70%<br>• Heparina sodica: &gt;1 año: 15 UI/kg/h / &lt;1 año: 20 UI/kg/h — desde 24-48h si RIN &lt;1.8 y plaquetas &gt;40.000<br>• AAS: 3-5 mg/kg/dia x6 meses</div><div class="proto-h">IS segun riesgo ABO compatible</div><table class="drug-table"><tr><th>Riesgo</th><th>Criterio</th><th>Induccion</th><th>Mantenimiento</th></tr><tr><td>Bajo</td><td>PRA 0%</td><td>MP 10mg/kg EV + Timoglobulina 1.5mg/kg/d x4d</td><td>Tacrolimus 0.1-0.15 mg/kg/d c/12h</td></tr><tr><td>Moderado</td><td>PRA&gt;0%, autoinmunes</td><td>IgG 1g/kg/d x2d + MP + Timoglobulina x4d</td><td>FK + MMF 600mg/m² c/12h + Prednisona 1-2mg/kg/d (→retiro a 3m)</td></tr><tr><td>Alto</td><td>DSA+</td><td>IgG 2g/kg + MP + Timoglobulina + Rituximab 375mg/m²</td><td>FK + MMF + Prednisona en descenso</td></tr></table>'};
+PROTOCOLOS.alarma={title:'Signos de Alarma — Primeras 72 horas',html:'<div class="proto-box danger"><b>Hepatico:</b> AST/ALT &gt;5000 UI/L → Eco Doppler urgente (descartar TAH) · Ictericia precoz · Bilirrubina &gt;10 mg/dL persistente o ascendente al dia 5-7 · INR &gt;2 sostenido</div><div class="proto-box danger"><b>Vascular:</b> Ausencia de flujo en arteria hepatica o vena porta → Eco Doppler urgente, reexploracion</div><div class="proto-box warning"><b>Hemodinamico:</b> TAM &lt;p5 → confirmar volemia, eco, vasopresores · Taquicardia &gt;20% basal</div><div class="proto-box warning"><b>Renal:</b> Diuresis &lt;1 mL/kg/h &gt;2h → eco Doppler, optimizar perfusion</div><div class="proto-box warning"><b>Respiratorio:</b> SatO2 &lt;92% con O2 · Falla de extubacion → reintubar, optimizar liquidos</div><div class="proto-box warning"><b>Neurologico:</b> Glasgow ↓ subito → glucosa EV, neuroimagen · Convulsiones → hiponatremia o toxicidad tacrolimus (PRES)</div><div class="proto-box warning"><b>Metabolico:</b> Hipoglucemia &lt;60 mg/dL · Lactato &gt;4 mmol/L persistente</div><div class="proto-box"><b>Infeccioso:</b> Fiebre &gt;38°C o T &lt;36°C → cultivos + ATB empirico urgente</div><div class="proto-h">Laboratorio diario primeros 7 dias</div><div class="proto-box">Gasometria · Lactato · Hepatograma · Coagulograma · Hemograma · Ionograma · Glucemia · Amonio · Albumina · Urea/creatinina · Niveles Tacrolimus. PCR-EBV y CMV semanal.</div>'};
+PROTOCOLOS.is={title:'Inmunosupresion — Dosis y Niveles Garrahan',html:'<div class="proto-h">Tacrolimus (FK) — Niveles objetivo</div><div class="proto-box">Dosis inicial: 0.1-0.15 mg/kg/dia VO c/12h (en ayunas)<br><b>Niveles:</b> 1° semestre: 7-10 ng/mL · hasta 1 año: 5-7 ng/mL · &gt;1 año biopsia normal: 3-5 ng/mL<br><b>Interacciones:</b> ↑: macrolidos, azoles, MP, omeprazol · ↓: carbamazepina, fenobarbital, rifampicina</div><div class="proto-h">Metilprednisolona — Esquema reciclado</div><table class="drug-table"><tr><th>Dia</th><th>&gt;40 kg</th><th>20-40 kg</th><th>10-20 kg</th><th>&lt;10 kg</th></tr><tr><td>1</td><td>200mg</td><td>150mg</td><td>100mg</td><td>40mg</td></tr><tr><td>2</td><td>150mg</td><td>100mg</td><td>40mg</td><td>20mg</td></tr><tr><td>3</td><td>100mg</td><td>40mg</td><td>20mg</td><td>16mg</td></tr><tr><td>4</td><td>40mg</td><td>20mg</td><td>16mg</td><td>8mg</td></tr><tr><td>5</td><td>20mg</td><td>16mg</td><td>8mg</td><td>4mg</td></tr><tr><td>6</td><td>16mg</td><td>8mg</td><td>4mg</td><td>—</td></tr><tr><td>7</td><td>8mg</td><td>4mg</td><td>—</td><td>—</td></tr><tr><td>8</td><td>4mg</td><td>—</td><td>—</td><td>—</td></tr></table><div class="proto-h">MMF (Micofenolato Mofetil)</div><div class="proto-box">Dosis: 600 mg/m²/dosis VO/EV c/12h · EA: diarrea, supresion medular, infecciones (CMV) · No asociar con azatioprina</div><div class="proto-h">Timoglobulina</div><div class="proto-box">1.5 mg/kg/dia EV (infusion 6h) x4 dias (total 6 mg/kg). Premedicacion: antihistaminico + paracetamol + corticosteroides. Profilaxis CMV y fungica obligatoria.</div>'};
+PROTOCOLOS.peld={title:'PELD / MELD — Mortalidad estimada',html:'<div class="proto-box"><b>PELD:</b> &lt;12 años · <b>MELD:</b> ≥12 años</div><div class="proto-h">Mortalidad estimada a 3 meses (UNOS/OPTN, EASL 2024)</div><table class="drug-table"><tr><th>Score</th><th>Mortalidad a 3m</th><th>Actualizacion</th></tr><tr><td>&lt;9</td><td>&lt;2%</td><td>Anual</td></tr><tr><td>10-14</td><td>≈6%</td><td>Cada 3 meses</td></tr><tr><td>15-19</td><td>≈6-20%</td><td>Cada 30 dias. Considerar Tx</td></tr><tr><td>20-29</td><td>≈20%</td><td>Cada 7 dias. Priorizar</td></tr><tr><td>30-39</td><td>≈53%</td><td>Alta prioridad</td></tr><tr><td>≥40</td><td>≈71%</td><td>Urgencia. Emergencia Nacional</td></tr></table><div class="proto-h">Emergencia Nacional — Criterios</div><div class="proto-box warning">• Falla hepatica fulminante (FHA)<br>• Falla primaria del injerto<br>• Trombosis arteria hepatica &lt;7 dias post-Tx</div>'};
+PROTOCOLOS.rechazo_upmc={title:'Rechazo Celular Agudo (ACR) — Manual UPMC',html:'<div class="proto-box">Hasta 40% de niños en los primeros 3 años post-Tx. &gt;70% ocurre en los primeros 6 meses. Raramente lleva a perdida del injerto.</div><div class="proto-h">Diagnostico</div><div class="proto-box">Hepatograma + Eco Doppler (descartar causa tecnica) + biopsia hepatica (infiltrado linfocitario portal, colangitis linfocitaria, endotelitis). Considerar DSA por MFI y ensayo Pleximmune (predice riesgo de rechazo celular de forma no invasiva).</div><div class="proto-h">Tratamiento — Leve a moderado (biopsia)</div><div class="proto-box warning">FK objetivo 10-12 ng/mL. Bolo metilprednisolona 10 mg/kg EV (max 1g). Esquema de descenso:</div><table class="drug-table"><tr><th>Dia</th><th>Dosis (mg/kg/d)</th><th>Frecuencia</th><th>Dosis max/toma</th></tr><tr><td>1</td><td>5</td><td>c/6h (4 tomas)</td><td>50 mg</td></tr><tr><td>2</td><td>4</td><td>c/6h (4 tomas)</td><td>40 mg</td></tr><tr><td>3</td><td>3</td><td>c/8h (3 tomas)</td><td>30 mg</td></tr><tr><td>4</td><td>2</td><td>c/12h (2 tomas)</td><td>20 mg</td></tr></table><div class="proto-box">Luego descenso de 5mg por semana segun hepatograma, con transicion a prednisona VO. Profilaxis antiulcerosa + valganciclovir + nistatina durante IS aumentada.</div><div class="proto-h">Tratamiento — Moderado a severo / corticorresistente</div><div class="proto-box danger">Timoglobulina si dano hepatico significativo o respuesta lenta a corticoides. Si rechazo + AMR asociado (DSA periferico, C4D+, vasculitis): considerar rituximab, bortezomib e inmunoglobulinas. Plasmaferesis en casos seleccionados.<br>MMF como "tercer agente" para reducir mas rapido FK y corticoides si hay complicaciones extrahepaticas (hiperglucemia, insuficiencia renal).</div><div class="proto-h">Rechazo cronico</div><div class="proto-box warning">&lt;5% de receptores, ~70% desarrolla fibrosis y disfuncion del injerto. Bx: ductopenia en 50% de tractos portales + colestasis + fibrosis + arteriopatia.<br>Tto: bolo y reciclado de metilprednisolona, FK objetivo 10-12 ng/mL, agregar MMF o sirolimus. Retrasplante si no responde (sin normalizacion de bilirrubina o persistencia de HTP).</div>'};
+PROTOCOLOS.vigilancia_upmc={title:'Vigilancia de Rechazo Subclinico — Manual UPMC',html:'<div class="proto-box">El rechazo subclinico ("silente") no se detecta con hepatograma normal ni niveles de tacrolimus aislados, pero puede progresar a dano cronico del injerto si no se vigila activamente.</div><div class="proto-h">Estrategia de vigilancia ampliada (UPMC)</div><div class="proto-box warning">• Desviacion estandar (SD) de 3-6 niveles consecutivos de tacrolimus previos a cada control — la variabilidad alta predice rechazo<br>• Ensayo Pleximmune anual (mide reactividad celular del receptor contra antigenos del donante vs terceros, no invasivo)<br>• DSA (anticuerpos especificos contra donante) periodicos<br>• Biopsias de vigilancia cada 5 años</div><div class="proto-box">En una serie de 70 receptores con &gt;1 año post-Tx, hasta la mitad de los pacientes con riesgo elevado en estas pruebas no invasivas tenian rechazo confirmado por biopsia o SD de FK ≥2 — aun con hepatograma normal.</div><div class="proto-h">Conducta ante riesgo elevado</div><div class="proto-box">Aumentar inmunosupresion segun hallazgos. Seguimiento a mediano plazo (~400 dias) mostro resolucion de hallazgos de biopsia y de riesgo no invasivo en la mayoria de los casos tratados oportunamente.</div>'};
+PROTOCOLOS.herida_upmc={title:'Complicaciones de la Herida Quirurgica — Manual UPMC',html:'<div class="proto-box">La infeccion del sitio quirurgico puede ocurrir hasta en 35% de receptores, desde infeccion superficial hasta absceso intraabdominal. La complicacion tardia mas frecuente es la hernia incisional, casi siempre precedida por una complicacion temprana de la herida.</div><div class="proto-h">Factores de riesgo</div><div class="proto-box">• Desnutricion cronica pretrasplante<br>• Peritonitis o colangitis pretrasplante<br>• Dehiscencia de anastomosis biliar o intestinal<br>• Inmunosupresion (efecto antiproliferativo de corticoides, cicatrizacion enlentecida con sirolimus)<br>• Cierre por etapas con parche abdominal temporal</div><div class="proto-h">Signos de alarma</div><div class="proto-box warning">Eritema, secrecion, dolor en la herida · Fiebre, secrecion purulenta · Dehiscencia fascial · Puede ser el primer signo de infeccion intraabdominal, fuga biliar o intestinal</div><div class="proto-h">Estudios</div><div class="proto-box">Examen de la herida (evaluar integridad fascial) · Rx abdomen (aire subcutaneo) · TC abdomen (proceso intraabdominal)</div><div class="proto-h">Manejo</div><div class="proto-box danger">1. Apertura y drenaje de la infeccion superficial<br>2. Cultivo aerobico, anaerobico y fungico<br>3. ATB empirico de amplio espectro (ej. piperacilina/tazobactam + vancomicina), ajustar segun cultivo<br>4. Exploracion quirurgica de herida o abdomen si se sospecha proceso profundo<br>5. Reparacion fascial si hay dehiscencia<br>6. Cuidado local de herida</div>'};
+PROTOCOLOS.cmv_upmc={title:'CMV — Protocolo Completo UPMC',html:'<div class="proto-h">Epidemiologia</div><div class="proto-box">Puede presentarse como infeccion asintomatica (PCR elevada en paciente bien) o enfermedad sintomatica (sindrome viral o enfermedad invasiva de tejido — higado e intestino los mas afectados). La enfermedad por CMV aumenta el riesgo de rechazo celular agudo y de otras infecciones oportunistas.</div><div class="proto-h">Tratamiento de infeccion/enfermedad activa</div><div class="proto-box warning">Ganciclovir 5 mg/kg/dosis EV c/12h (ajustar a funcion renal). Valganciclovir puede considerarse en infeccion asintomatica o enfermedad leve-moderada.<br>Seguir PCR de CMV semanal como marcador de respuesta. Continuar tratamiento hasta carga no cuantificable o negativa x2 semanas. Respuesta clinica esperada en 5-7 dias. Las cargas suelen comenzar a descender en 10-14 dias.</div><div class="proto-box">CMV-Ig (Inmunoglobulina especifica) 300 mg/kg/dosis EV semanal si hay enteritis o neumonitis por CMV, hasta carga no detectable — no siempre necesaria, consultar con Infectologia.<br>Disminuir inmunosupresion segun criterio del medico tratante.</div><div class="proto-box danger"><b>CMV resistente</b> (sin respuesta o empeoramiento tras 2 semanas de ganciclovir): enviar test de resistencia genotipica (UL97/UL54). Considerar foscarnet. Interconsulta con Infectologia.</div><div class="proto-h">Profilaxis post-Tx hepatico (UPMC)</div><div class="proto-box">Pacientes en riesgo (D+/R+, D-/R+, D+/R-): Ganciclovir 5 mg/kg/dosis EV c/12h x14 dias, luego puede completarse con Valganciclovir VO 15-18 mg/kg/dosis por dia (maximo 900 mg/dia).<br>No se da profilaxis en D-/R- (ambos negativos).</div><div class="proto-h">Calendario de vigilancia con PCR</div><table class="drug-table"><tr><th>Periodo post-Tx</th><th>Frecuencia PCR CMV</th></tr><tr><td>0 a 3 meses</td><td>Cada 2 semanas</td></tr><tr><td>3 a 6 meses</td><td>Mensual</td></tr><tr><td>6 a 12 meses</td><td>Cada 3 meses</td></tr></table><div class="proto-h">Profilaxis tras tratamiento de rechazo (IS aumentada)</div><div class="proto-box warning">Cualquier paciente en riesgo (no D-/R-) que recibe pulsos de corticoides EV o anticuerpos antilinfociticos por rechazo debe iniciar ganciclovir preventivo desde la primera dosis del tratamiento de rechazo, continuando 14 dias luego de finalizado.<br>Ganciclovir 5 mg/kg/dia EV o Valganciclovir VO 15-18 mg/kg/dia (ajustar funcion renal).<br>Monitoreo posterior: PCR semanal x2 semanas, luego c/2 semanas x1 mes, luego mensual x2 meses. Si carga &gt;200 cuantificable: continuar valganciclovir hasta no detectable x2.</div>'};
+
+
+function showProtocolo(key){
+  var p=PROTOCOLOS[key];if(!p)return;
+  document.getElementById('guia-menu').style.display='none';
+  var menuUpmc=document.getElementById('guia-menu-upmc');if(menuUpmc)menuUpmc.style.display='none';
+  document.getElementById('guia-content').style.display='';
+  document.getElementById('guia-inner').innerHTML='<h2 style="font-size:15px;font-weight:700;margin-bottom:.9rem;">'+p.title+'</h2>'+p.html;
+  window.scrollTo(0,0);
+}
+
+
+// ---- AUTH ----
+var USERS = {
+  'txhepatico': 'trasplante2024',
+  'residente': 'trasplante2024',
+  'enfermeria': 'trasplante2024'
+};
+var SESSION_KEY = 'pase_auth_v1';
+
+function checkSession(){
+  try{
+    var s = sessionStorage.getItem(SESSION_KEY);
+    return s === 'ok';
+  }catch(e){return false;}
+}
+
+function doLogin(){
+  var user = document.getElementById('login-user').value.trim().toLowerCase();
+  var pass = document.getElementById('login-pass').value;
+  var err = document.getElementById('login-error');
+  if(USERS[user] && USERS[user] === pass){
+    try{sessionStorage.setItem(SESSION_KEY,'ok');}catch(e){}
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('main-app').style.display='';
+    err.className='login-error';
+  } else {
+    err.className='login-error show';
+    document.getElementById('login-pass').value='';
+    document.getElementById('login-pass').focus();
+  }
+}
+
+// Check session on load
+if(checkSession()){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-app').style.display='';
+}
+
+// BORRADO INCONDICIONAL — se ejecuta SIEMPRE en esta carga
+try {
+  localStorage.removeItem(SK);
+  localStorage.removeItem(SK+'_p');
+} catch(e) {}
+
+var localData=lload();
+if(localData.length){PXS=localData;renderSala(localData);}else{renderSala([]);}
+if(online){
+  flush(function(){pull();});
+}else{dot('of');obUpdate();}
+setInterval(function(){if(online)pull();},15000);
+setInterval(function(){if(PXS.length)renderSala(PXS);},60000);
+</script>
+</body>
+</html>
