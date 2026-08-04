@@ -50,6 +50,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .csub{font-size:11px;color:#666;margin-top:2px;line-height:1.4;}
 .cbrow{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
 .cb{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+.alert-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px;}
+.alert-badge{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;color:#fff;white-space:nowrap;letter-spacing:.01em;}
+.alert-gf{background:#C62828;}
+.alert-alergia{background:#F57C00;}
+.alert-mdr{background:#4A148C;}
+.rq-dot{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;}
 .cb-pre{background:#E6F1FB;color:#185FA5;}
 .cb-post{background:#EAF3DE;color:#27500A;}
 .cb-retx{background:#EEEDFE;color:#3C3489;}
@@ -263,6 +269,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
   <div class="loc-detalle" id="loc-detalle-cim-wrap" style="display:none;"><div id="loc-detalle-cim"></div></div>
   <div id="cards"></div>
   <button class="add-btn" onclick="showForm(null)">+ Agregar paciente</button>
+  <button class="btn-sec" style="margin-top:8px;font-size:12px;padding:8px 12px;" onclick="toggleImportPanel()">⇪ Importar pacientes (JSON)</button>
+  <div id="import-panel" style="display:none;margin-top:8px;background:#F8F7F5;border:1px solid #ddd;border-radius:8px;padding:10px;">
+    <div style="font-size:11px;color:#888;margin-bottom:6px;">Pegá acá una lista de pacientes en formato JSON y presioná "Importar". Se agregan como pacientes internados nuevos.</div>
+    <textarea id="import-json" style="width:100%;min-height:110px;font-family:monospace;font-size:11px;padding:8px;border:1px solid #ccc;border-radius:6px;"></textarea>
+    <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+      <button class="btn-pri" style="font-size:12px;padding:7px 12px;" onclick="importarPacientesJSON()">Importar</button>
+      <span id="import-status" style="font-size:11px;color:#888;"></span>
+    </div>
+  </div>
 </div>
 <div id="pnl-det" class="content" style="display:none;"><div id="det-inner"></div></div>
 <div id="pnl-form" class="content" style="display:none;"><div id="form-inner"></div></div>
@@ -306,7 +321,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 <script>
 var SU='https://script.google.com/macros/s/AKfycbxzRN7drGvjjXNi3z8CS9p4WrMWmw9vFYSaCizAMqb18E8BPj66HCEQRxHImYeqvV5p/exec';
 var SK='pase_v8';
-var PXS=[], EID=null, FT={a:[],i:[],t:[]}, FC=[], FKH=[], COMP=[], IMG=[], MOV=[], DOMH=[];
+var PXS=[], EID=null, FT={a:[],i:[],t:[]}, FC=[], FKH=[], COMP=[], IMG=[], MOV=[], DOMH=[], DOMH_PRE=[], LABH=[];
 var online=navigator.onLine, pending=[];
 
 document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
@@ -351,6 +366,17 @@ function migrarDominiosViejos(p){
     return {id:'d'+Date.now()+Math.random().toString(36).slice(2)+d.n,n:d.n,nombre:d.nombre,problema:d.estado,tratamiento:d.tratamiento||'',inicio:p.fecha_ingreso||hoy(),fin:null};
   });
 }
+// Compatibilidad con la reordenación de dominios (jul-2026): los números de dominio cambiaron
+// (ej. Función injerto pasó del 4 al 2), así que un historial guardado con la numeración vieja
+// mostraría mal el dominio si se filtrara solo por número. Se recalcula el número actual buscando
+// por nombre en DOMINIOS_POST — así el historial viejo se reubica solo en el dominio correcto.
+function remapDomN(hist){
+  return (hist||[]).map(function(d){
+    var idx=DOMINIOS_POST.findIndex(function(dom){return dom.nombre===d.nombre;});
+    if(idx>=0)return Object.assign({},d,{n:idx+1});
+    return d;
+  });
+}
 
 function showForm(p){
   EID=p?p.id:null;
@@ -360,7 +386,9 @@ function showForm(p){
   COMP=(p?p.complicaciones_post||[]:[]).slice();
   IMG=(p?p.imagenes||[]:[]).slice();
   MOV=(p?p.movimientos||[]:[]).slice();
-  DOMH=(p&&p.dominios_historial&&p.dominios_historial.length)?p.dominios_historial.map(function(d){return Object.assign({},d);}):migrarDominiosViejos(p);
+  DOMH=remapDomN((p&&p.dominios_historial&&p.dominios_historial.length)?p.dominios_historial.map(function(d){return Object.assign({},d);}):migrarDominiosViejos(p));
+  DOMH_PRE=(p&&p.dominios_pre_historial)?p.dominios_pre_historial.map(function(d){return Object.assign({},d);}):[];
+  LABH=(p?p.lab_history||[]:[]).slice();
   document.getElementById('pnl-sala').style.display='none';
   document.getElementById('pnl-det').style.display='none';
   document.getElementById('pnl-guia').style.display='none';
@@ -384,17 +412,31 @@ function getSituacionClinica(p){
   if(t==='pre')return 'Pretrasplante';
   if(t==='retx')return 'Retrasplante';
   var dp=dias(p.fecha_tx);
-  if(p.momento==='post_inmediato')return 'Postrasplante inmediato (0–30 días)';
-  if(p.momento==='post_temprano')return 'Postrasplante temprano (30 días – 1 año)';
+  if(p.momento==='post_inmediato')return 'Postrasplante inmediato (desde el Tx hasta el alta)';
+  if(p.momento==='post_temprano')return 'Postrasplante temprano (desde el alta hasta el año)';
   if(p.momento==='post_tardio')return 'Postrasplante tardío (>1 año)';
   return 'Postrasplante';
 }
 
+function agruparPorDominio(actD){
+  var grupos={},orden=[];
+  actD.forEach(function(d){
+    if(!grupos[d.nombre]){grupos[d.nombre]=[];orden.push(d.nombre);}
+    grupos[d.nombre].push(d.problema);
+  });
+  return orden.map(function(nom){return nom+': '+grupos[nom].join(', ');});
+}
 function getProblemasActivos(p){
-  // Postrasplante: sistema de 9 dominios — mostrar los problemas activos (sin fecha de fin) del historial
+  // Postrasplante: sistema de 12 dominios — mostrar los problemas activos (sin fecha de fin) del historial,
+  // agrupados por dominio para no repetir el nombre del dominio si hay más de un problema activo en el mismo
   if(p.dominios_historial&&p.dominios_historial.length){
     var actD=p.dominios_historial.filter(function(d){return !d.fin;});
-    if(actD.length)return actD.slice(0,6).map(function(d){return d.nombre+': '+d.problema;});
+    if(actD.length)return agruparPorDominio(actD).slice(0,6);
+  }
+  // Pretrasplante: mismo sistema, con los dominios propios de pretrasplante
+  if(p.dominios_pre_historial&&p.dominios_pre_historial.length){
+    var actDPre=p.dominios_pre_historial.filter(function(d){return !d.fin;});
+    if(actDPre.length)return agruparPorDominio(actDPre).slice(0,6);
   }
   // hasta 3 problemas activos — usa campos estructurados prob1/2/3 (con detalle), con fallback a datos viejos
   var probs=[];
@@ -429,6 +471,11 @@ function getPlanesActivos(p){
   if(p.dominios_historial&&p.dominios_historial.length){
     var actD=p.dominios_historial.filter(function(d){return !d.fin&&d.tratamiento;});
     if(actD.length)return actD.slice(0,6).map(function(d){return d.tratamiento;});
+  }
+  // Pretrasplante: mismo sistema, con los dominios propios de pretrasplante
+  if(p.dominios_pre_historial&&p.dominios_pre_historial.length){
+    var actDPre=p.dominios_pre_historial.filter(function(d){return !d.fin&&d.tratamiento;});
+    if(actDPre.length)return actDPre.slice(0,6).map(function(d){return d.tratamiento;});
   }
   // hasta 3 planes activos — usa campos estructurados plan1/2/3, con fallback a datos viejos
   var planes=[];
@@ -619,6 +666,14 @@ function renderSala(pxs){
     html+='<div class="card" onclick="showDet('+p.id+')">';
     // ¿Quién es?
     html+='<div class="card-top"><div class="strip '+tipoCls[t]+'"></div><div style="flex:1;min-width:0;">';
+    // Alarmas: grupo y factor / alergias / colonización MDR — arriba a la izquierda, bien visibles
+    if(p.grupo_factor||p.alergias||p.germen_mr==='Sí'){
+      html+='<div class="alert-badges">';
+      if(p.grupo_factor)html+='<span class="alert-badge alert-gf">🩸 '+p.grupo_factor+'</span>';
+      if(p.alergias)html+='<span class="alert-badge alert-alergia" title="'+p.alergias.replace(/"/g,'&quot;')+'">⚠ Alergia'+(p.alergias?': '+p.alergias.substring(0,18)+(p.alergias.length>18?'…':''):'')+'</span>';
+      if(p.germen_mr==='Sí')html+='<span class="alert-badge alert-mdr" title="'+(p.germen_mr_detalle||'').replace(/"/g,'&quot;')+'">🦠 MDR'+(p.germen_mr_detalle?': '+p.germen_mr_detalle:'')+'</span>';
+      html+='</div>';
+    }
     html+='<div class="cname">'+p.nombre+'</div>';
     html+='<div class="csub">'+(p.edad||'')+(p.peso?' · '+p.peso+' kg':'')+' · '+(p.diag||'—')+'</div>';
     // ¿Dónde está?
@@ -639,6 +694,20 @@ function renderSala(pxs){
         html+='</div>';
       }
       html+='</div>';
+    }
+    // ¿Cómo va la recuperación quirúrgica? (postrasplante inmediato o con complicación quirúrgica)
+    if(mostrarRecupQx(p)){
+      var doneCount=RECUP_QX_ITEMS.filter(function(it){return p['recup_qx_'+it.k]==='completado';}).length;
+      html+='<div class="card-section" style="background:#F0F6FC;">';
+      html+='<div class="card-sec-lbl" style="color:#185FA5;">🏁 Recuperación quirúrgica ('+doneCount+'/'+RECUP_QX_ITEMS.length+')</div>';
+      html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;">';
+      RECUP_QX_ITEMS.forEach(function(it){
+        var st=p['recup_qx_'+it.k]||'pendiente';
+        var color=st==='completado'?'#1A7A3C':(st==='progreso'?'#B58900':'#c9c9c9');
+        var symbol=st==='completado'?'✓':(st==='progreso'?'◐':'○');
+        html+='<span class="rq-dot" title="'+it.l+'" style="background:'+color+';">'+symbol+'</span>';
+      });
+      html+='</div></div>';
     }
     // ¿Qué le falta para irse?
     html+='<div class="card-section card-alta '+alta.clase+'">';
@@ -771,6 +840,14 @@ function renderDet(p){
     });
     h+='</div>';
   }
+  if(p.dominios_pre_historial&&p.dominios_pre_historial.length){
+    h+='<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #ddd;">';
+    h+='<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Historial de dominios de pretrasplante (con fecha de inicio y resolución)</div>';
+    p.dominios_pre_historial.slice().reverse().forEach(function(dh){
+      h+='<div style="font-size:11px;color:#666;margin-bottom:2px;">• '+dh.nombre+' — <strong>'+dh.problema+'</strong>'+(dh.tratamiento?' ('+dh.tratamiento+')':'')+' — desde '+fmtF(dh.inicio)+(dh.fin?' hasta '+fmtF(dh.fin):' (activo)')+'</div>';
+    });
+    h+='</div>';
+  }
   h+='</div>';
 
   h+='<div class="det-sec det-q5 '+altaEsp.clase+'"><div class="det-q-title">Alta esperada</div>';
@@ -851,68 +928,197 @@ var SALAS_UCI_CIM=['UCI 72','UCI 44','UCI 45','CIM 61','CIM 41','CIM 62','CIM 63
 // ---- DOMINIOS POSTRASPLANTE (punto 4 del formulario, solo cuando la situación clínica es Postrasplante) ----
 var DOMINIOS_POST=[
   {n:1,nombre:'Soporte vital',problemas:[
-    {l:'Respiratorio',t:['CN (cánula nasal)','VNI','CAFO','ARM']},
-    {l:'Hemodinámico',t:['Adrenalina','Noradrenalina','Vasopresina','Nitroprusiato']}
+    {l:'Respiratorio',t:['CN (cánula nasal)','VNI','CAFO','ARM','ECMO (V-V)']},
+    {l:'Hemodinámico',t:['Adrenalina','Noradrenalina','Vasopresina','Nitroprusiato','ECMO (V-A)']},
+    {l:'Insuficiencia renal aguda (IRA)',t:['Manejo médico','Hemofiltro (CRRT)','Diálisis convencional']},
+    {l:'Encefalopatía grado 1-2',t:['Lactulosa','Rifaximina']},
+    {l:'Encefalopatía grado 3-4',t:['Manejo de edema cerebral','IOT/ARM (protección de vía aérea)']},
+    {l:'Hemorragia activa',t:['Transfusión','Hemostasia endoscópica','Hemostasia quirúrgica']},
+    {l:'Derrame pleural / Hemotórax',t:['Drenaje pleural (TAP)','Toracocentesis']}
   ]},
-  {n:2,nombre:'Nutricional',problemas:[
-    {l:'Ayuno',t:['PHP','NTP (nutrición parenteral)']},
-    {l:'Tolerancia enteral',t:['GCC','Gavage']}
+  {n:2,nombre:'Función injerto',problemas:[
+    {l:'Disfunción en estudio',t:['Estudios']},
+    {l:'Disfunción temprana del injerto',t:['Estudios']},
+    {l:'Síndrome small for size',t:['Soporte + optimización del flujo portal']},
+    {l:'Falla primaria del injerto',t:['Retrasplante urgente']},
+    {l:'RAMCT leve',t:['FK objetivo 6-9 ng/dl x3 meses','Prednisona oral']},
+    {l:'RAMCT moderado',t:['FK objetivo 9-12 ng/dl x3 meses','Metilprednisolona EV']},
+    {l:'RAMCT severo',t:['FK objetivo 9-12 ng/dl x3 meses','Metilprednisolona EV']},
+    {l:'Rechazo corticorresistente',t:['Timoglobulina','Reducir FK a 4-6 ng/dl']},
+    {l:'Rechazo mediado por anticuerpos',t:['Inmunoglobulinas','Plasmaféresis','Rituximab']},
+    {l:'Rechazo crónico',t:['Control','Ajuste de inmunosupresión']},
+    {l:'Recurrencia de la enfermedad',t:['Tratamiento dirigido según etiología']}
   ]},
   {n:3,nombre:'Complicaciones técnicas',problemas:[
-    {l:'Vascular — arteria hepática',t:['Angioplastia','Stent']},
-    {l:'Vascular — vena porta',t:['Portoplastia','Stent']},
-    {l:'Vascular — venas suprahepáticas',t:['Angioplastia','Stent']},
-    {l:'Vía biliar',t:['Drenaje biliar externo','Drenaje biliar interno-externo','Stent']},
-    {l:'Complicaciones quirúrgicas',t:['Reoperación']}
+    {l:'Vascular — arteria hepática',t:['Trombectomía','Angioplastia','Stent']},
+    {l:'Vascular — vena porta',t:['Trombectomía','Portoplastia','Stent']},
+    {l:'Vascular — venas suprahepáticas: estenosis',t:['Angioplastia','Stent']},
+    {l:'Vascular — venas suprahepáticas: trombosis',t:['Anticoagulación','Angioplastia','Stent']},
+    {l:'Biliar — fuga de la anastomosis',t:['Drenaje percutáneo/transhepático','CPRE con esfinterotomía ± stent']},
+    {l:'Biliar — estenosis',t:['CPRE con dilatación/stent','Drenaje percutáneo transhepático','Reconstrucción quirúrgica']},
+    {l:'Colección',t:['Drenaje percutáneo','Reoperación']},
+    {l:'Perforación',t:['Reoperación']},
+    {l:'Oclusión',t:['Reoperación']}
   ]},
-  {n:4,nombre:'Función injerto',problemas:[
-    {l:'Disfunción',t:['Estudios']},
-    {l:'RAMCT leve',t:['Pulso EV','Pulso VO','Ajuste inmunosupresión']},
-    {l:'RAMCT moderado',t:['Pulso EV','Pulso VO','Ajuste inmunosupresión']},
-    {l:'RAMCT severo',t:['Pulso EV','Pulso VO','Ajuste inmunosupresión']},
-    {l:'Rechazo corticorresistente',t:['Timoglobulina + fotoaféresis']},
-    {l:'Rechazo crónico',t:['Control']}
+  {n:4,nombre:'Infecciosas',problemas:[
+    {l:'Fiebre en estudio',t:['Cultivos + tto dirigido']},
+    {l:'Infección bacteriana',t:['Cultivos + tto dirigido']},
+    {l:'Infección fúngica',t:['Cultivos + tto dirigido']},
+    {l:'Infección viral',t:['Ganciclovir','Foscarnet']},
+    {l:'Infecciones parasitarias',t:['Cultivos + tto dirigido']},
+    {l:'Colonización / infección de catéter',t:['Cultivos + tto dirigido','Retiro de catéter']}
   ]},
-  {n:5,nombre:'Infección',problemas:[
+  {n:5,nombre:'Inmunosupresión',problemas:[
+    {l:'Sospecha de inmunosupresión inadecuada',t:['Estudios','Control de niveles']},
+    {l:'Inmunosupresión insuficiente',t:['Ajustar dosis','Evaluar adherencia']},
+    {l:'Inmunosupresión excesiva tóxica',t:['Reducir dosis','Cambio de droga/esquema']},
+    {l:'Inmunosupresión excesiva no tóxica',t:['Reducir dosis']},
+    {l:'Variabilidad',t:['Evaluar adherencia','Ajuste de esquema']}
+  ]},
+  {n:6,nombre:'Función renal',problemas:[
+    {l:'Disfunción renal en estudio',t:['Estudios']},
+    {l:'Insuficiencia renal aguda (IRA)',t:['Manejo médico','Hemofiltro (CRRT)','Diálisis convencional']},
+    {l:'Enfermedad renal crónica',t:['Diálisis','Control nefrológico']},
+    {l:'Hipertensión arterial',t:['Amlodipina','Enalapril','Otro antihipertensivo']}
+  ]},
+  {n:7,nombre:'Hematooncológico',problemas:[
+    {l:'Citopenia en estudio',t:['Estudios']},
+    {l:'Anemia',t:['Transfusión','Hierro','EPO']},
+    {l:'Leucopenia',t:['Ajuste de mielotóxicos','G-CSF']},
+    {l:'Neutropenia',t:['G-CSF','Ajuste de drogas']},
+    {l:'Trombocitopenia',t:['Transfusión de plaquetas','Ajuste de drogas']},
+    {l:'Pancitopenia',t:['Estudios','Soporte transfusional']},
+    {l:'PTLD',t:['Reducción de inmunosupresión','Rituximab','Quimioterapia']},
+    {l:'Linfoma',t:['Derivación oncológica','Quimioterapia']},
+    {l:'Otros',t:['Derivación oncológica']}
+  ]},
+  {n:8,nombre:'Neurológico',problemas:[
+    {l:'PRES (encefalopatía posterior reversible)',t:['Ajuste de inmunosupresión','Control de TA']},
+    {l:'Convulsiones',t:['RMN de sistema nervioso central']},
+    {l:'ACV isquémico',t:['Soporte','Trombolisis']},
+    {l:'ACV hemorrágico',t:['Neuroquirúrgico']}
+  ]},
+  {n:9,nombre:'Metabólico',problemas:[
+    {l:'Hidroelectrolítico',t:['Corrección EV','Corrección VO']},
+    {l:'Trastorno ácido-base',t:['Corrección según el tipo de trastorno']},
+    {l:'Hipoglucemia',t:['Corrección EV','Corrección VO']},
+    {l:'Hiperglucemia',t:['Control','Insulina']},
+    {l:'Dislipemia',t:['Dieta','Estatinas']},
+    {l:'Hiperuricemia',t:['Alopurinol','Dieta']},
+    {l:'Síndrome ascítico-edematoso',t:['Diuréticos','Paracentesis evacuadora']}
+  ]},
+  {n:10,nombre:'Psicosocial',problemas:[
+    {l:'Salud mental',t:[]},
+    {l:'Servicio social',t:[]},
+    {l:'Salud mental + Servicio social',t:[]}
+  ]},
+  {n:11,nombre:'Nutricional / Digestivo',problemas:[
+    {l:'Diarrea',t:['Cultivos + tto dirigido (si infecciosa)','Ajuste dietético','Ajuste de MMF (si por toxicidad)']},
+    {l:'Intolerancia enteral',t:['Ajuste de aporte','GCC (gastroclisis continua)','Gavage']},
+    {l:'Requerimiento de soporte nutricional prolongado',t:['NPT','NTP (nutrición parenteral)']}
+  ]},
+  {n:12,nombre:'Otros',problemas:[
+    {l:'Otro problema activo (especificar en observaciones)',t:[]}
+  ]}
+];
+
+// ---- DOMINIOS PRETRASPLANTE (mismo sistema, activo solo cuando la situación clínica es Pretrasplante) ----
+var DOMINIOS_PRE=[
+  {n:1,nombre:'Función hepática',problemas:[
+    {l:'Falla hepática fulminante',t:['Traslado a UTI','Plasmaféresis / MARS']},
+    {l:'Coagulopatía',t:['Vitamina K','Plasma fresco','Crioprecipitado']},
+    {l:'Colestasis / ictericia progresiva',t:['Ácido ursodesoxicólico','Monitoreo']}
+  ]},
+  {n:2,nombre:'Encefalopatía',problemas:[
+    {l:'Encefalopatía grado I-II',t:['Lactulosa','Rifaximina']},
+    {l:'Encefalopatía grado III-IV',t:['Manejo de edema cerebral','IOT/ARM (protección de vía aérea)']}
+  ]},
+  {n:3,nombre:'Hipertensión portal',problemas:[
+    {l:'Hemorragia digestiva variceal',t:['Ligadura endoscópica','Octreotide/Terlipresina','TIPS']},
+    {l:'Ascitis',t:['Diuréticos','Paracentesis evacuadora']},
+    {l:'PBE (peritonitis bacteriana espontánea)',t:['Cultivos + ATB dirigido']}
+  ]},
+  {n:4,nombre:'Función renal',problemas:[
+    {l:'Síndrome hepatorrenal',t:['Terlipresina + Albúmina','Diálisis']},
+    {l:'IRA de otra causa',t:['Manejo médico']}
+  ]},
+  {n:5,nombre:'Infección / Sepsis',problemas:[
     {l:'Fiebre — foco abdominal',t:['Cultivos + tto dirigido']},
     {l:'Fiebre — foco piel',t:['Cultivos + tto dirigido']},
     {l:'Fiebre — foco respiratorio',t:['Cultivos + tto dirigido']},
     {l:'Fiebre — foco gastrointestinal',t:['Cultivos + tto dirigido']},
     {l:'Fiebre sin foco',t:['Cultivos + tto dirigido']},
     {l:'Infección fúngica',t:['Cultivos + tto dirigido']},
-    {l:'Reactivación viral (CMV)',t:['Ganciclovir','Foscarnet']}
+    {l:'Reactivación viral (CMV)',t:['Ganciclovir','Foscarnet']},
+    {l:'Infección asociada a catéter (CLABSI)',t:['Cultivos + tto dirigido','Retiro de catéter','Recambio sobre guía']}
   ]},
-  {n:6,nombre:'Función renal',problemas:[
-    {l:'IRA (insuficiencia renal aguda)',t:['Manejo médico']},
-    {l:'IRC (insuficiencia renal crónica)',t:['Diálisis','Control nefrológico']}
+  {n:6,nombre:'Cardiopulmonar',problemas:[
+    {l:'Síndrome hepatopulmonar',t:['Oxígeno','Evaluación para trasplante urgente']},
+    {l:'Hipertensión portopulmonar',t:['Vasodilatadores pulmonares (Sildenafil, etc.)']}
   ]},
-  {n:7,nombre:'Neurológico',problemas:[
-    {l:'Hemorragia',t:['Neuroquirúrgico']},
-    {l:'Convulsiones',t:['RMN de sistema nervioso central']}
+  {n:7,nombre:'Soporte vital',problemas:[
+    {l:'Respiratorio',t:['CN (cánula nasal)','VNI','CAFO','ARM']},
+    {l:'Hemodinámico',t:['Adrenalina','Noradrenalina','Vasopresina','Nitroprusiato']},
+    {l:'Hipertensión arterial',t:['Amlodipina','Enalapril','Otro antihipertensivo']}
   ]},
-  {n:8,nombre:'Metabólico',problemas:[
-    {l:'Hidroelectrolítico',t:['Corrección EV','Corrección VO']},
-    {l:'Hipoglucemia',t:['Corrección EV','Corrección VO']},
-    {l:'Hiperglucemia',t:['Control','Insulina']}
+  {n:8,nombre:'Nutricional',problemas:[
+    {l:'Desnutrición / falla de crecimiento',t:['Soporte enteral','NPT']},
+    {l:'Osteopatía hepática',t:['Vitamina D','Calcio']}
   ]},
-  {n:9,nombre:'Psicosocial',problemas:[
+  {n:9,nombre:'Neurológico',problemas:[
+    {l:'Convulsiones',t:['RMN de sistema nervioso central']},
+    {l:'Hemorragia',t:['Neuroquirúrgico']}
+  ]},
+  {n:10,nombre:'Psicosocial',problemas:[
     {l:'Salud mental',t:[]},
     {l:'Servicio social',t:[]},
     {l:'Salud mental + Servicio social',t:[]}
   ]}
 ];
 
-function domProblemaDef(n,estVal){
-  var dom=DOMINIOS_POST[n-1];
+function DOM_ARR(sis){ return sis==='pre'?DOMINIOS_PRE:DOMINIOS_POST; }
+function DOM_HIST(sis){ return sis==='pre'?DOMH_PRE:DOMH; }
+function DOM_ID(sis,n){ return (sis==='pre'?'fdomp':'fdom')+n; }
+
+// ---- CHECKLIST DE RECUPERACIÓN QUIRÚRGICA ----
+// Se muestra en la tarjeta cuando el paciente es postrasplante inmediato o tuvo alguna
+// complicación quirúrgica registrada (domain 3, "Colección"/"Perforación"/"Oclusión").
+var RECUP_QX_ITEMS=[
+  {k:'vent',l:'Ventilación retirada',ic:'🫁',def:'Extubación exitosa, sin requerimiento de ARM (VNI/CAFO residual no impide marcarlo completado)'},
+  {k:'vaso',l:'Vasopresores retirados',ic:'💉',def:'Suspensión completa de todas las drogas vasoactivas, manteniendo estabilidad hemodinámica sin soporte farmacológico'},
+  {k:'via',l:'Cierre / reconstrucción de vía biliar',ic:'🔗',def:'Si quedó pendiente en la cirugía índice (drenaje transitorio, reconstrucción diferida): completado al hacer la reconstrucción definitiva. Si se reconstruyó en la cirugía inicial, marcar completado desde el ingreso'},
+  {k:'pared',l:'Cierre de pared abdominal',ic:'🧵',def:'Si el abdomen quedó abierto (bolsa/malla temporal) por edema del injerto o desproporción de tamaño: completado al cierre definitivo. Si se cerró en la cirugía inicial, marcar completado desde el ingreso'},
+  {k:'dren',l:'Drenajes retirados',ic:'🩹',def:'Retiro de todos los drenajes intraabdominales colocados en la cirugía'},
+  {k:'cat',l:'Catéteres centrales retirados',ic:'🔌',def:'Retiro de todos los accesos venosos centrales'},
+  {k:'entini',l:'Inicio de alimentación enteral',ic:'🍽️',def:'Primera tolerancia de aporte enteral (oral o por sonda), aunque sea en volumen mínimo/trófico'},
+  {k:'entcomp',l:'Alimentación enteral completa',ic:'🥣',def:'Cobertura del requerimiento calórico-proteico total por vía enteral, sin aporte parenteral complementario'},
+  {k:'dolor',l:'Dolor controlado',ic:'🙂',def:'Manejo analgésico adecuado según escala validada para la edad, sin requerir escalada de opioides EV'},
+  {k:'movil',l:'Movilización',ic:'🚶',def:'Inicio de kinesiología activa, sedestación o deambulación según edad y estado clínico'},
+  {k:'altauci',l:'Alta de UCI',ic:'🛏️',def:'Traslado a sala general, sin requerimiento de monitoreo/soporte de terapia intensiva'},
+  {k:'altahosp',l:'Alta hospitalaria',ic:'🏠',def:'Externación del paciente'}
+];
+
+function tuvoComplicacionQuirurgica(p){
+  var chk=function(arr){return (arr||[]).some(function(d){return d.n===3&&(d.problema==='Colección'||d.problema==='Perforación'||d.problema==='Oclusión');});};
+  return chk(p.dominios_historial)||chk(p.dominios_pre_historial);
+}
+function mostrarRecupQx(p){
+  return p.momento==='post_inmediato'||tuvoComplicacionQuirurgica(p);
+}
+
+function domProblemaDef(sis,n,estVal){
+  var dom=DOM_ARR(sis)[n-1];
   if(!dom||!estVal)return null;
   return dom.problemas.find(function(pr){return pr.l===estVal;})||null;
 }
 
-function buildDominiosHTML(){
+function buildDominiosHTML(sis){
   var hh='';
-  DOMINIOS_POST.forEach(function(dom){
-    var activos=DOMH.filter(function(d){return d.n===dom.n&&!d.fin;});
-    var resueltos=DOMH.filter(function(d){return d.n===dom.n&&d.fin;});
+  var arr=DOM_ARR(sis), hist=DOM_HIST(sis);
+  arr.forEach(function(dom){
+    var activos=hist.filter(function(d){return d.n===dom.n&&!d.fin;});
+    var resueltos=hist.filter(function(d){return d.n===dom.n&&d.fin;});
+    var idbase=DOM_ID(sis,dom.n);
     hh+='<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px;margin-bottom:8px;">';
     hh+='<div style="font-size:11px;font-weight:700;color:#7B3F9E;margin-bottom:8px;">DOMINIO '+dom.n+' — '+dom.nombre+'</div>';
     if(!activos.length&&!resueltos.length){
@@ -922,9 +1128,9 @@ function buildDominiosHTML(){
       hh+='<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">';
       activos.forEach(function(a){
         hh+='<div class="comp-item" style="flex-wrap:wrap;"><span style="flex:1 1 auto;"><strong>'+a.problema+'</strong>'+(a.tratamiento?' — '+a.tratamiento:'')+'</span>';
-        hh+='<span style="font-size:10px;color:#999;display:flex;align-items:center;gap:3px;">desde <input type="date" value="'+(a.inicio||'')+'" onchange="editarFechaDom(\''+a.id+'\',\'inicio\',this.value)" style="border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:10px;font-family:inherit;"></span>';
-        hh+='<span class="tx" title="Marcar resuelto" onclick="resolverDomAct(\''+a.id+'\')" style="color:#27500A;opacity:1;font-size:10px;font-weight:700;margin:0 4px 0 8px;white-space:nowrap;">✓ Resuelto</span>';
-        hh+='<span class="tx" title="Eliminar (registrado por error)" onclick="eliminarDomAct(\''+a.id+'\')">×</span></div>';
+        hh+='<span style="font-size:10px;color:#999;display:flex;align-items:center;gap:3px;">desde <input type="date" value="'+(a.inicio||'')+'" onchange="editarFechaDom(\''+sis+'\',\''+a.id+'\',\'inicio\',this.value)" style="border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:10px;font-family:inherit;"></span>';
+        hh+='<span class="tx" title="Marcar resuelto" onclick="resolverDomAct(\''+sis+'\',\''+a.id+'\')" style="color:#27500A;opacity:1;font-size:10px;font-weight:700;margin:0 4px 0 8px;white-space:nowrap;">✓ Resuelto</span>';
+        hh+='<span class="tx" title="Eliminar (registrado por error)" onclick="eliminarDomAct(\''+sis+'\',\''+a.id+'\')">×</span></div>';
       });
       hh+='</div>';
     }
@@ -934,49 +1140,51 @@ function buildDominiosHTML(){
       resueltos.slice().reverse().forEach(function(r){
         hh+='<div class="comp-item" style="flex-wrap:wrap;opacity:.8;">';
         hh+='<span style="flex:1 1 100%;font-size:11px;"><strong>'+r.problema+'</strong>'+(r.tratamiento?' — '+r.tratamiento:'')+'</span>';
-        hh+='<span style="font-size:10px;color:#999;display:flex;align-items:center;gap:3px;">desde <input type="date" value="'+(r.inicio||'')+'" onchange="editarFechaDom(\''+r.id+'\',\'inicio\',this.value)" style="border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:10px;font-family:inherit;"> hasta <input type="date" value="'+(r.fin||'')+'" onchange="editarFechaDom(\''+r.id+'\',\'fin\',this.value)" style="border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:10px;font-family:inherit;"></span>';
-        hh+='<span class="tx" title="Eliminar" onclick="eliminarDomAct(\''+r.id+'\')">×</span></div>';
+        hh+='<span style="font-size:10px;color:#999;display:flex;align-items:center;gap:3px;">desde <input type="date" value="'+(r.inicio||'')+'" onchange="editarFechaDom(\''+sis+'\',\''+r.id+'\',\'inicio\',this.value)" style="border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:10px;font-family:inherit;"> hasta <input type="date" value="'+(r.fin||'')+'" onchange="editarFechaDom(\''+sis+'\',\''+r.id+'\',\'fin\',this.value)" style="border:1px solid #ddd;border-radius:5px;padding:2px 4px;font-size:10px;font-family:inherit;"></span>';
+        hh+='<span class="tx" title="Eliminar" onclick="eliminarDomAct(\''+sis+'\',\''+r.id+'\')">×</span></div>';
       });
       hh+='</div></details>';
     }
     hh+='<div class="g2" style="margin-bottom:6px;">';
-    hh+='<div class="fld"><label>Agregar / modificar problema activo</label><select id="fdom'+dom.n+'_est" onchange="onDominio('+dom.n+')"><option value="">— seleccionar —</option>';
+    hh+='<div class="fld"><label>Agregar / modificar problema activo</label><select id="'+idbase+'_est" onchange="onDominio(\''+sis+'\','+dom.n+')"><option value="">— seleccionar —</option>';
     dom.problemas.forEach(function(pr){hh+='<option>'+pr.l+'</option>';});
     hh+='</select></div>';
-    hh+='<div class="fld" id="wrap-domtrat'+dom.n+'" style="display:none;flex-direction:column;gap:3px;"><label>Tratamiento</label><div id="domtratwidget'+dom.n+'"></div></div>';
+    hh+='<div class="fld" id="wrap-'+idbase+'trat" style="display:none;flex-direction:column;gap:3px;"><label>Tratamiento</label><div id="'+idbase+'tratwidget"></div></div>';
     hh+='</div>';
-    if(dom.n===1)hh+='<div style="font-size:10px;color:#888;margin-bottom:6px;">Para Hemodinámico podés tildar más de un fármaco a la vez (ej. adrenalina + noradrenalina). Al volver a seleccionarlo se muestran los que ya están activos, para sumar o sacar.</div>';
-    hh+='<button type="button" class="btn-sec" style="font-size:12px;padding:6px 12px;" onclick="addDomAct('+dom.n+')">+ Agregar</button>';
+    if(dom.n===(sis==='pre'?7:1))hh+='<div style="font-size:10px;color:#888;margin-bottom:6px;">Para Hemodinámico podés tildar más de un fármaco a la vez (ej. adrenalina + noradrenalina). Al volver a seleccionarlo se muestran los que ya están activos, para sumar o sacar.</div>';
+    hh+='<button type="button" class="btn-sec" style="font-size:12px;padding:6px 12px;" onclick="addDomAct(\''+sis+'\','+dom.n+')">+ Agregar</button>';
     hh+='</div>';
   });
   return hh;
 }
 
-function renderDominios(){
-  var el=document.getElementById('dominios-inner');
+function renderDominios(sis){
+  var el=document.getElementById(sis==='pre'?'dominios-pre-inner':'dominios-inner');
   if(!el)return;
-  el.innerHTML=buildDominiosHTML();
+  el.innerHTML=buildDominiosHTML(sis);
 }
 
-function onDominio(n){
-  var estSel=document.getElementById('fdom'+n+'_est');
+function onDominio(sis,n){
+  var idbase=DOM_ID(sis,n);
+  var estSel=document.getElementById(idbase+'_est');
   var estVal=estSel?estSel.value:'';
-  var probDef=domProblemaDef(n,estVal);
-  var wrap=document.getElementById('wrap-domtrat'+n);
-  var widget=document.getElementById('domtratwidget'+n);
+  var probDef=domProblemaDef(sis,n,estVal);
+  var wrap=document.getElementById('wrap-'+idbase+'trat');
+  var widget=document.getElementById(idbase+'tratwidget');
   if(!wrap||!widget)return;
   if(probDef&&probDef.t.length){
     wrap.style.display='flex';
     if(estVal==='Hemodinámico'){
       // Único problema que admite varios tratamientos a la vez (ej. varios inotrópicos)
-      var existing=DOMH.find(function(d){return d.n===n&&d.problema===estVal&&!d.fin;});
+      var hist=DOM_HIST(sis);
+      var existing=hist.find(function(d){return d.n===n&&d.problema===estVal&&!d.fin;});
       var existingTrats=(existing&&existing.tratamiento)?existing.tratamiento.split(', '):[];
       widget.innerHTML='<div style="border:1px solid #ddd;border-radius:7px;padding:6px 8px;background:#fff;">'+probDef.t.map(function(o,idx){
         var checked=existingTrats.indexOf(o)>=0?' checked':'';
-        return '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0;"><input type="checkbox" value="'+o.replace(/"/g,'&quot;')+'" id="fdom'+n+'_trat'+idx+'"'+checked+'>'+o+'</label>';
+        return '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0;"><input type="checkbox" value="'+o.replace(/"/g,'&quot;')+'" id="'+idbase+'_trat'+idx+'"'+checked+'>'+o+'</label>';
       }).join('')+'</div>';
     } else {
-      widget.innerHTML='<select id="fdom'+n+'_trat"><option value="">— seleccionar —</option>'+probDef.t.map(function(o){return '<option>'+o+'</option>';}).join('')+'</select>';
+      widget.innerHTML='<select id="'+idbase+'_trat"><option value="">— seleccionar —</option>'+probDef.t.map(function(o){return '<option>'+o+'</option>';}).join('')+'</select>';
     }
   } else {
     wrap.style.display='none';
@@ -984,49 +1192,52 @@ function onDominio(n){
   }
 }
 
-function addDomAct(n){
-  var estSel=document.getElementById('fdom'+n+'_est');
+function addDomAct(sis,n){
+  var idbase=DOM_ID(sis,n);
+  var estSel=document.getElementById(idbase+'_est');
   if(!estSel)return;
   var estVal=estSel.value;
   if(!estVal)return;
-  var dom=DOMINIOS_POST[n-1];
+  var dom=DOM_ARR(sis)[n-1];
   var esHemo=(estVal==='Hemodinámico');
   var tratVal='';
   if(esHemo){
-    var widget=document.getElementById('domtratwidget'+n);
+    var widget=document.getElementById(idbase+'tratwidget');
     var checked=widget?Array.prototype.slice.call(widget.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.value;}):[];
     tratVal=checked.join(', ');
   } else {
-    var sel=document.getElementById('fdom'+n+'_trat');
+    var sel=document.getElementById(idbase+'_trat');
     tratVal=sel?sel.value:'';
   }
-  var dup=DOMH.find(function(d){return d.n===n&&d.problema===estVal&&!d.fin;});
+  var hist=DOM_HIST(sis);
+  var dup=hist.find(function(d){return d.n===n&&d.problema===estVal&&!d.fin;});
   if(dup){
     if(esHemo)dup.tratamiento=tratVal; // reemplaza siempre con el set tildado (permite sacar drogas)
     else if(tratVal)dup.tratamiento=tratVal;
   } else {
-    DOMH.push({id:'d'+Date.now()+Math.random().toString(36).slice(2),n:n,nombre:dom.nombre,problema:estVal,tratamiento:tratVal,inicio:hoy(),fin:null});
+    hist.push({id:'d'+Date.now()+Math.random().toString(36).slice(2),n:n,nombre:dom.nombre,problema:estVal,tratamiento:tratVal,inicio:hoy(),fin:null});
   }
-  renderDominios();
+  renderDominios(sis);
 }
 
-function resolverDomAct(id){
-  var e=DOMH.find(function(d){return d.id===id;});
+function resolverDomAct(sis,id){
+  var e=DOM_HIST(sis).find(function(d){return d.id===id;});
   if(e)e.fin=hoy();
-  renderDominios();
+  renderDominios(sis);
 }
 
 // Permite corregir la fecha de inicio (o de resolución) de un problema si se cargó tarde —
 // por ejemplo un paciente que ingresó en ARM el sábado pero recién se registró el lunes.
-function editarFechaDom(id,campo,valor){
-  var e=DOMH.find(function(d){return d.id===id;});
+function editarFechaDom(sis,id,campo,valor){
+  var e=DOM_HIST(sis).find(function(d){return d.id===id;});
   if(e&&valor)e[campo]=valor;
   // no hace falta re-renderizar todo el bloque: el input ya muestra el valor nuevo
 }
 
-function eliminarDomAct(id){
-  DOMH=DOMH.filter(function(d){return d.id!==id;});
-  renderDominios();
+function eliminarDomAct(sis,id){
+  if(sis==='pre')DOMH_PRE=DOMH_PRE.filter(function(d){return d.id!==id;});
+  else DOMH=DOMH.filter(function(d){return d.id!==id;});
+  renderDominios(sis);
 }
 
 function buildForm(p){
@@ -1040,7 +1251,7 @@ function buildForm(p){
   h+='<div class="fld gca" style="margin-bottom:8px;"><label>Seleccionar situación clínica actual</label>';
   h+='<select id="fmo" onchange="onMomento()">';
   h+='<option value="">— seleccionar —</option>';
-  [['notx','No trasplante'],['pre','Pretrasplante'],['post_inmediato','Postrasplante inmediato (0–30 días)'],['post_temprano','Postrasplante temprano (30 días – 1 año)'],['post_tardio','Postrasplante tardío (>1 año)'],['retx','Retrasplante']].forEach(function(x){
+  [['notx','No trasplante'],['pre','Pretrasplante'],['post_inmediato','Postrasplante inmediato (desde el Tx hasta el alta)'],['post_temprano','Postrasplante temprano (desde el alta hasta el año)'],['post_tardio','Postrasplante tardío (>1 año)'],['retx','Retrasplante']].forEach(function(x){
     h+='<option value="'+x[0]+'"'+(mo===x[0]?' selected':'')+'>'+x[1]+'</option>';
   });
   h+='</select></div>';
@@ -1117,6 +1328,9 @@ function buildForm(p){
   var _resprov=['Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes','Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones','Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe','Santiago del Estero','Tierra del Fuego','Tucumán'].indexOf(_resv)>=0;
   h+='<input id="fres-ext" value="'+(_resext?gv('residencia_detalle',''):'')+'" placeholder="País de origen" style="margin-top:5px;display:'+(_resext?'block':'none')+'">';
   h+='</div>';
+  h+='<div class="fld"><label>Alergias</label><input id="falergias" value="'+gv('alergias')+'" placeholder="Ej: Penicilina, Látex... (dejar vacío si no tiene)"></div>';
+  h+='<div class="fld"><label>Colonización por germen multirresistente</label><select id="fgermenmr" onchange="onGermenMR()"><option value="No"'+(gv('germen_mr','No')==='No'?' selected':'')+'>No</option><option value="Sí"'+(gv('germen_mr')==='Sí'?' selected':'')+'>Sí</option></select></div>';
+  h+='<div class="fld" id="wrap-germenmr-det" style="display:'+(gv('germen_mr')==='Sí'?'flex':'none')+';flex-direction:column;gap:3px;"><label>Germen / detalle</label><input id="fgermenmrd" value="'+gv('germen_mr_detalle')+'" placeholder="Ej: KPC, SAMR, VRE..."></div>';
   h+='<div class="fld"><label>Fecha de internación</label><input id="ffi" type="date" value="'+gv('fecha_ingreso',hoy())+'"></div>';
   h+='<div class="fld"><label>Cama / lugar</label><input id="flugar" value="'+gv('lugar_int')+'" placeholder="Nº cama, box..."></div>';
   h+='<div class="fld gca" style="background:#f0f0f0;border-radius:8px;padding:10px;border:1px solid #ddd;">';
@@ -1143,16 +1357,37 @@ function buildForm(p){
   h+='</div>';
   h+='</div>';
 
-  // PUNTO 3 + 4: PROBLEMAS ACTIVOS emparejados con su PLAN correspondiente (1↔1, 2↔2, 3↔3) — Pretrasplante/Retrasplante/No trasplante
-  // En Postrasplante se reemplaza por el sistema de 9 dominios clínicos
+  // PUNTO 3: LABORATORIO — modo dinámico, cada valor con su fecha (historial, no pisa lo anterior)
+  h+='<div class="sec-box"><div class="sec-lbl blue">3. Laboratorio</div>';
+  h+='<div style="font-size:11px;color:#888;margin-bottom:8px;">Completá los valores de hoy y presioná "+ Guardar laboratorio" — queda registrado con la fecha, sin borrar los anteriores. Dejalo en blanco si no tenés labs nuevos.</div>';
+  h+='<div class="g3" style="margin-bottom:6px;">';
+  [['flbili','Bilirrubina total','mg/dL'],['flbilid','Bilirrubina directa','mg/dL'],['fltgo','TGO','U/L'],
+   ['fltgp','TGP','U/L'],['flggt','GGT','U/L'],['fltp','TP','%'],
+   ['flinr','INR',''],['flalb','Albúmina','g/dL'],['flcreat','Creatinina','mg/dL'],
+   ['flurea','Urea','mg/dL'],['flhb','Hemoglobina','g/dL'],['flhto','Hematocrito','%'],
+   ['flgb','Glóbulos blancos','/mm³'],['flplaq','Plaquetas','/mm³'],['flafp','AFP','ng/mL']
+  ].forEach(function(f){
+    h+='<div class="fld"><label>'+f[1]+'</label><input id="'+f[0]+'" type="number" step="0.01" placeholder="'+(f[2]||'')+'"></div>';
+  });
+  h+='</div>';
+  h+='<button type="button" class="btn-sec" style="font-size:12px;padding:7px 12px;" onclick="addLab()">+ Guardar laboratorio con fecha de hoy</button>';
+  h+='<div id="lab-list" style="margin-top:8px;display:flex;flex-direction:column;gap:5px;"></div>';
+  h+='</div>';
+
+  // PUNTO 4 + 5: PROBLEMAS ACTIVOS emparejados con su PLAN correspondiente (1↔1, 2↔2, 3↔3) — Retrasplante/No trasplante
+  // En Pretrasplante se reemplaza por el sistema de 12 dominios clínicos de pretrasplante
+  // En Postrasplante se reemplaza por el sistema de 12 dominios clínicos de postrasplante
   var esPostForm=(mo==='post_inmediato'||mo==='post_temprano'||mo==='post_tardio');
+  var esPreForm=(mo==='pre');
+  var esHastaTresForm=(!esPostForm&&!esPreForm);
   var probOptsPre=['Falla hepática aguda','Enfermedad hepática crónica descompensada (Ascitis / PBE / Sangrado digestivo / SHR)','Infección / Sepsis','Complicación cardiopulmonar (Síndrome hepatopulmonar / Hipertensión portopulmonar)','Problema nutricional (Desnutrición / Falla de crecimiento / Osteopatía hepática)','Problema psicosocial'];
   var probOptsPost=['Injerto (disfunción / rechazo / recurrencia / alteración bioquímica)','Infección (bacteriana / viral / fúngica / sepsis)','Complicación vascular o biliar (trombosis / estenosis / fuga biliar / colangitis)','Complicación respiratoria','Complicación renal/metabólica','Problema nutricional','Complicación neurológica','Inmunosupresión (variabilidad FK / toxicidad / neutropenia)','Problema psicosocial / alta'];
   var planOpts=['Tratamiento médico','Antiinfecciosos (Antibióticos / Antivirales / Antifúngicos)','Inmunosupresión','Procedimiento (Biopsia / Endoscopía / Angioplastía / Drenaje)','Cirugía','Soporte nutricional (Enteral / Parenteral / Mixto)','Soporte de órganos (O2 / VNI / ARM / Diálisis)','Rehabilitación','Preparación del alta','Espera de órgano'];
-  h+='<div class="sec-box"><div class="sec-lbl problemas-color" id="sec4-title">'+(esPostForm?'3. Problemas activos por dominio':'3. Problemas activos y sus planes (hasta 3)')+'</div>';
+  var sec4TituloTxt=esPostForm?'4. Problemas activos por dominio':(esPreForm?'4. Problemas activos por dominio (pretrasplante)':'4. Problemas activos y sus planes (hasta 3)');
+  h+='<div class="sec-box"><div class="sec-lbl problemas-color" id="sec4-title">'+sec4TituloTxt+'</div>';
 
-  // -- Variante Pretrasplante/Retrasplante/No trasplante: hasta 3 problemas + plan --
-  h+='<div id="probplan-wrap" style="display:'+(esPostForm?'none':'block')+';">';
+  // -- Variante Retrasplante/No trasplante: hasta 3 problemas + plan --
+  h+='<div id="probplan-wrap" style="display:'+(esHastaTresForm?'block':'none')+';">';
   h+='<div style="font-size:11px;color:#888;margin-bottom:10px;">Cada problema debe tener su plan correspondiente en el mismo número.</div>';
   for(var pi=1;pi<=3;pi++){
     h+='<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px;margin-bottom:8px;">';
@@ -1172,17 +1407,23 @@ function buildForm(p){
   }
   h+='</div>';
 
-  // -- Variante Postrasplante: 9 dominios clínicos --
+  // -- Variante Postrasplante: 10 dominios clínicos --
   h+='<div id="dominios-wrap" style="display:'+(esPostForm?'block':'none')+';">';
   h+='<div style="font-size:11px;color:#888;margin-bottom:10px;">Para cada dominio: si está Estable no hace falta hacer nada. Para registrar un problema activo, elegí el problema (y su tratamiento si corresponde) y presioná "+ Agregar" — queda registrado con fecha, sin borrar los demás. Se pueden tener varios problemas activos a la vez en el mismo dominio. "✓ Resuelto" cierra el problema con la fecha de hoy sin borrarlo del historial.</div>';
-  h+='<div id="dominios-inner">'+buildDominiosHTML()+'</div>';
+  h+='<div id="dominios-inner">'+buildDominiosHTML('post')+'</div>';
+  h+='</div>';
+
+  // -- Variante Pretrasplante: 10 dominios clínicos específicos de pretrasplante --
+  h+='<div id="dominios-pre-wrap" style="display:'+(esPreForm?'block':'none')+';">';
+  h+='<div style="font-size:11px;color:#888;margin-bottom:10px;">Mismo sistema que en postrasplante, pero con los dominios propios de pretrasplante (función hepática, encefalopatía, hipertensión portal, etc.).</div>';
+  h+='<div id="dominios-pre-inner">'+buildDominiosHTML('pre')+'</div>';
   h+='</div>';
 
   h+='</div>';
 
   // PUNTO 7: BARRERA PARA EL ALTA — con registro histórico de fechas para medir duración real
   var barreraOpts=['Infección activa','Procedimiento pendiente','Cirugía pendiente','Ajuste de inmunosupresión','Nutrición','Rehabilitación','Capacitación familiar','Equipamiento domiciliario','Cobertura / autorización','Problema social','Espera de órgano','Otras'];
-  h+='<div class="sec-box"><div class="sec-lbl red">4. Barreras para el alta</div>';
+  h+='<div class="sec-box"><div class="sec-lbl red">5. Barreras para el alta</div>';
   h+='<div style="font-size:11px;color:#888;margin:8px 0;">La barrera principal actual queda registrada con fecha. Si la cambiás, se cierra el período anterior automáticamente y arranca uno nuevo (esto permite medir cuántos días estuvo activa cada barrera).</div>';
   h+='<div class="fld" style="margin-bottom:8px;"><label>Barrera principal actual</label><select id="fbarp"><option value="">— ninguna —</option>';
   barreraOpts.forEach(function(o){h+='<option'+(gv('barrera_principal')===o?' selected':'')+'>'+o+'</option>';});
@@ -1315,6 +1556,21 @@ function buildForm(p){
   h+='</div></div>';
   h+='</div>';
 
+  // RECUPERACIÓN QUIRÚRGICA — checklist (se muestra en la tarjeta si es post-inmediato o si tuvo complicación quirúrgica)
+  h+='<div class="sec-box"><div class="sec-lbl blue">Recuperación quirúrgica (checklist)</div>';
+  h+='<div style="font-size:11px;color:#888;margin-bottom:8px;">Aparece en la tarjeta cuando la situación clínica es Postrasplante inmediato, o si el paciente tuvo alguna complicación quirúrgica registrada.</div>';
+  RECUP_QX_ITEMS.forEach(function(it){
+    var val=gv('recup_qx_'+it.k,'pendiente');
+    h+='<div class="g2" style="margin-bottom:6px;align-items:center;">';
+    h+='<div><div style="font-size:13px;">'+it.ic+' '+it.l+'</div><div style="font-size:10px;color:#888;margin-top:2px;">'+it.def+'</div></div>';
+    h+='<select id="frq_'+it.k+'">';
+    [['pendiente','Pendiente'],['progreso','En progreso'],['completado','Completado']].forEach(function(o){
+      h+='<option value="'+o[0]+'"'+(val===o[0]?' selected':'')+'>'+o[1]+'</option>';
+    });
+    h+='</select></div>';
+  });
+  h+='</div>';
+
   h+='<div class="sec-box"><div class="sec-lbl blue">Complicaciones post-trasplante</div>';
   h+='<div style="font-size:11px;color:#888;margin-bottom:8px;">Registrar cada complicación con su categoría, detalle y fecha.</div>';
   h+='<div class="g3" style="margin-bottom:6px;">';
@@ -1343,6 +1599,7 @@ function buildForm(p){
 
   document.getElementById('form-inner').innerHTML=h;
   ['a','i','t'].forEach(function(t){frtags(t);});
+  renderLabList();
   onDiagGrupo(p?p.diag:null);
   onMomento();
 }
@@ -1351,6 +1608,11 @@ function onRes(){
   var v=document.getElementById('fres')?document.getElementById('fres').value:'';
   var ext=document.getElementById('fres-ext');
   if(ext)ext.style.display=v==='Extranjero'?'block':'none';
+}
+function onGermenMR(){
+  var v=document.getElementById('fgermenmr')?document.getElementById('fgermenmr').value:'No';
+  var w=document.getElementById('wrap-germenmr-det');
+  if(w)w.style.display=v==='Sí'?'flex':'none';
 }
 function onDVR(){
   var v=document.getElementById('fdvr_yn')?document.getElementById('fdvr_yn').value:'No';
@@ -1437,7 +1699,7 @@ function aplicarDatosRecuperados(){
 
 function onMomento(){
   var v=document.getElementById('fmo')?document.getElementById('fmo').value:'';
-  var msgs={pre:'Pretrasplante: paciente en lista de espera o evaluación.',post_inmediato:'Postrasplante inmediato (0–7 días): inducción IS y monitoreo del injerto.',post_temprano:'Postrasplante temprano (>7 días – <1 año): vigilancia de rechazo e infecciones.',post_tardio:'Postrasplante tardío (>1 año): función del injerto, adherencia.',retx:'Retrasplante: documentar causa de fallo del injerto previo.'};
+  var msgs={pre:'Pretrasplante: paciente en lista de espera o evaluación.',post_inmediato:'Postrasplante inmediato (desde el trasplante hasta el alta).',post_temprano:'Postrasplante temprano (desde el alta hasta el año): vigilancia de rechazo e infecciones.',post_tardio:'Postrasplante tardío (>1 año): función del injerto, adherencia.',retx:'Retrasplante: documentar causa de fallo del injerto previo.'};
   var clss={pre:'ctx-pre',post_inmediato:'ctx-post',post_temprano:'ctx-post',post_tardio:'ctx-post',retx:'ctx-retx'};
   var b=document.getElementById('ctx-box');
   if(b){b.textContent=msgs[v]||'';b.className='ctx-box '+(clss[v]||'');b.style.display=v?'':'none';}
@@ -1455,12 +1717,15 @@ function onMomento(){
     sec1Title.textContent='2. '+(esPreORetx?'Enfermedad de base':'Tipo de trasplante');
     sec1Title.className='sec-lbl '+(esPreORetx?'blue':'green');
   }
-  // PUNTO 3: Problemas activos — sistema por dominios (1-9) en Postrasplante, sistema "hasta 3" en el resto
+  // PUNTO 3: Problemas activos — dominios de postrasplante, dominios de pretrasplante, o sistema "hasta 3" en retx/notx
   var esPost=(v==='post_inmediato'||v==='post_temprano'||v==='post_tardio');
+  var esPreDom=(v==='pre');
+  var esHastaTres=(!esPost&&!esPreDom);
   var domWrap=document.getElementById('dominios-wrap');if(domWrap)domWrap.style.display=esPost?'block':'none';
-  var ppWrap=document.getElementById('probplan-wrap');if(ppWrap)ppWrap.style.display=esPost?'none':'block';
+  var domPreWrap=document.getElementById('dominios-pre-wrap');if(domPreWrap)domPreWrap.style.display=esPreDom?'block':'none';
+  var ppWrap=document.getElementById('probplan-wrap');if(ppWrap)ppWrap.style.display=esHastaTres?'block':'none';
   var sec4Title=document.getElementById('sec4-title');
-  if(sec4Title)sec4Title.textContent=esPost?'3. Problemas activos por dominio':'3. Problemas activos y sus planes (hasta 3)';
+  if(sec4Title)sec4Title.textContent=esPost?'4. Problemas activos por dominio':(esPreDom?'4. Problemas activos por dominio (pretrasplante)':'4. Problemas activos y sus planes (hasta 3)');
 }
 function onEval(el){el.className=el.value==='pendiente'?'pend':el.value==='apto'?'apto':'';}
 
@@ -1621,6 +1886,45 @@ function addFK(){
   FKH.push({fecha:hoy(),nivel:n,dosis:d});
   var el=document.getElementById('ftacro');if(el)el.value='';
 }
+var LAB_FIELDS=[
+  ['bili','flbili'],['bili_directa','flbilid'],['tgo','fltgo'],['tgp','fltgp'],['ggt','flggt'],
+  ['tp','fltp'],['inr','flinr'],['alb','flalb'],['creat','flcreat'],['urea','flurea'],
+  ['hb','flhb'],['hto','flhto'],['gb','flgb'],['plaq','flplaq'],['afp','flafp']
+];
+var LAB_LABELS={bili:'Bili total',bili_directa:'Bili directa',tgo:'TGO',tgp:'TGP',ggt:'GGT',tp:'TP',inr:'INR',alb:'Alb',creat:'Creat',urea:'Urea',hb:'Hb',hto:'Hto',gb:'GB',plaq:'Plaq',afp:'AFP'};
+function addLab(){
+  var snap={fecha:hoy()};
+  var any=false;
+  LAB_FIELDS.forEach(function(pair){
+    var el=document.getElementById(pair[1]);
+    var v=el?el.value:'';
+    snap[pair[0]]=v;
+    if(v)any=true;
+  });
+  if(!any)return;
+  LABH.push(snap);
+  LAB_FIELDS.forEach(function(pair){var el=document.getElementById(pair[1]);if(el)el.value='';});
+  renderLabList();
+}
+function rmLab(idx){
+  LABH.splice(idx,1);
+  renderLabList();
+}
+function renderLabList(){
+  var el=document.getElementById('lab-list');
+  if(!el)return;
+  el.innerHTML='';
+  var sorted=LABH.slice().sort(function(a,b){return new Date(a.fecha)-new Date(b.fecha);});
+  for(var i=0;i<sorted.length;i++){
+    var s=sorted[i];
+    var realIdx=LABH.indexOf(s);
+    var resumen=LAB_FIELDS.filter(function(pair){return s[pair[0]];}).map(function(pair){return LAB_LABELS[pair[0]]+' '+s[pair[0]];}).join(' · ');
+    var div=document.createElement('div');
+    div.className='mov-item';
+    div.innerHTML='<span style="flex:1;"><strong>'+fmtF(s.fecha)+'</strong>: '+(resumen||'—')+'</span><span class="tx" onclick="rmLab('+realIdx+')">x</span>';
+    el.appendChild(div);
+  }
+}
 function fg(id){var el=document.getElementById(id);return el?el.value.trim():'';}
 function fsel(id){var el=document.getElementById(id);return el?el.value:'';}
 
@@ -1631,12 +1935,12 @@ function fguardar(){
   var ultTras=ultimoTraslado(MOV);
   var salaFinal=ultTras?ultTras.unidad:'';
   var existP=EID?PXS.find(function(x){return x.id===EID;}):null;
-  var oldLabHist=existP?existP.lab_history||[]:[];
   var oldFKH=existP?existP.fk_history||[]:[];
   var oldComp=existP?existP.complicaciones_post||[]:[];
-  var newLab={fecha:hoy(),bili:fg('fbili'),bili_directa:fg('fbilidirect'),tgo:fg('ftgo'),tgp:fg('ftgp'),ggt:fg('fggt'),tp:fg('ftp'),inr:fg('finr'),alb:fg('falb'),creat:fg('fcreat'),hb:fg('fhb'),hto:fg('fhto'),gb:fg('fgb'),plaq:fg('fplaq'),urea:fg('furea'),afp:fg('fafp')};
-  var hasLab=Object.keys(newLab).slice(1).some(function(k){return newLab[k];});
-  var labHistory=hasLab?oldLabHist.concat([newLab]):oldLabHist;
+  // Laboratorio: LABH ya se mantiene actualizado en vivo (se carga desde p.lab_history al abrir
+  // el paciente y se le van agregando snapshots con fecha mediante el botón "+ Guardar laboratorio").
+  var labHistory=LABH.slice();
+  var lastLab=labHistory.length?labHistory[labHistory.length-1]:{};
   var tacroV=fg('ftacro');
   var fkFull=oldFKH.concat(FKH);
   if(tacroV&&!FKH.find(function(f){return f.fecha===hoy();}))fkFull.push({fecha:hoy(),nivel:tacroV,dosis:fg('ftacrod')});
@@ -1676,17 +1980,22 @@ function fguardar(){
   // Cada problema activo queda registrado con fecha de inicio; al resolverse queda con fecha de fin,
   // y nunca se pierde del historial (se pueden tener varios problemas activos a la vez por dominio).
   var dominiosHist=DOMH.slice();
+  var dominiosPreHist=DOMH_PRE.slice();
 
   var evalKeys=['cardio','neumo','nefro','infecto','neuro','orl','oftalmo','salud_mental','s_social','alimentacion','gineco'];
   var evals={};
   evalKeys.forEach(function(k){evals['eval_'+k]=fsel('eval_'+k);});
   var en=fg('fedad'),eu=fsel('fedadu');
+  var recupQxData={};
+  RECUP_QX_ITEMS.forEach(function(it){recupQxData['recup_qx_'+it.k]=fsel('frq_'+it.k)||'pendiente';});
+
   var p=Object.assign({
     id:EID||Date.now(),nombre:nom,
     edad:en?en+' '+eu:'—',edad_n:en,edad_u:eu,
     peso:fg('fpeso'),diag_grupo:fsel('fdiaggrupo'),diag:fsel('fdiag'),enf_base:fg('fenf'),
     hc:fg('fhc'),cirugia_previa:fsel('fkasai'),
     nacionalidad:fg('fnac'),residencia:fsel('fres'),residencia_detalle:fg('fres-ext'),grupo_factor:fsel('fgf'),
+    alergias:fg('falergias'),germen_mr:fsel('fgermenmr'),germen_mr_detalle:fg('fgermenmrd'),
     fecha_ingreso:fg('ffi'),lugar_int:fg('flugar'),sala:salaFinal,
     momento:mo,
     motivo:fg('fmot'),
@@ -1697,6 +2006,7 @@ function fguardar(){
     plan2:fsel('fplan2'),plan2_det:fg('fplan2d'),
     plan3:fsel('fplan3'),plan3_det:fg('fplan3d'),
     dominios_historial:dominiosHist,
+    dominios_pre_historial:dominiosPreHist,
     barrera_principal:fsel('fbarp'),barrera_secundaria:fsel('fbars'),barrera_terciaria:fsel('fbart'),barreras_historial:barrerasHist,
     tipo_tx:fsel('ftipotx'),
     tipo_trasplante_nuevo:fsel('ftipotxnew'),tipo_donante:fsel('ftipodonante'),tipo_injerto_nuevo:fsel('ftipoinjertonew'),
@@ -1706,7 +2016,7 @@ function fguardar(){
     dvr_peso:fg('fdvr_peso'),dvr_talla:fg('fdvr_talla'),dvr_imc:fg('fdvr_imc'),
     dvr_gf:fsel('fdvr_gf'),dvr_grwr:fg('fdvr_grwr'),
     causa_fallo:fg('fcausa'),fecha_retx:fg('fretxf'),
-    fecha_tx:fg('fftx'),abo:fsel('fabo'),riesgo:fsel('friesgo'),pra:fg('fpra'),dsa:fg('fdsa'),grupo_factor:fsel('fgftx')||fsel('fgfpre'),
+    fecha_tx:fg('fftx'),abo:fsel('fabo'),riesgo:fsel('friesgo'),pra:fg('fpra'),dsa:fg('fdsa'),grupo_factor:fsel('fgftx')||fsel('fgfpre')||fsel('fgf'),
     donante:fsel('fdon'),tipo_injerto:fsel('ftinj'),
     grwr:fg('fgrwr'),peso_explante:fg('fpexpl'),peso_implante:fg('fpimpl'),
     tif:fg('ftif'),piggy_back:fsel('fpiggy'),portoplastia:fsel('fportop'),
@@ -1718,18 +2028,18 @@ function fguardar(){
     mmf:fsel('fmmf'),cort:fsel('fcort'),mtor:fsel('fmtor'),is_extra:FT.i.slice(),
     rechazo:fsel('frec'),vascular:fsel('fvas'),biliar:fsel('fbil'),
     infec:fsel('finf'),ptld:fsel('fptld'),otras:fg('fotras'),
-    bili:newLab.bili||fg('fbili'),bili_directa:newLab.bili_directa,
-    tgo:newLab.tgo,tgp:newLab.tgp,ggt:newLab.ggt,
-    tp:newLab.tp,inr:newLab.inr,alb:newLab.alb,creat:newLab.creat,
-    hb:newLab.hb,hto:newLab.hto,gb:newLab.gb,plaq:newLab.plaq,
-    urea:newLab.urea,afp:newLab.afp,
+    bili:lastLab.bili||'',bili_directa:lastLab.bili_directa||'',
+    tgo:lastLab.tgo||'',tgp:lastLab.tgp||'',ggt:lastLab.ggt||'',
+    tp:lastLab.tp||'',inr:lastLab.inr||'',alb:lastLab.alb||'',creat:lastLab.creat||'',
+    hb:lastLab.hb||'',hto:lastLab.hto||'',gb:lastLab.gb||'',plaq:lastLab.plaq||'',
+    urea:lastLab.urea||'',afp:lastLab.afp||'',
     lab_history:labHistory,fk_history:fkFull,complicaciones_post:allComp,imagenes:IMG.slice(),movimientos:MOV.slice(),
     fecha_inicio_atb:fg('ffatb'),abx:FT.a.slice(),atb:FT.t.slice(),cults:FC.slice(),
     pcmv:fsel('fpcmv'),ppcp:fsel('fppcp'),paf:fsel('fpaf'),
     nutri:fsel('fnutri'),diur:fg('fdiur'),vent:fsel('fvent'),hemodi:fsel('fhemo'),
     obs:fg('fobs'),ts:Date.now()
-  },evals);
-  COMP=[];FKH=[];IMG=[];MOV=[];DOMH=[];
+  },evals,recupQxData);
+  COMP=[];FKH=[];IMG=[];MOV=[];DOMH=[];DOMH_PRE=[];LABH=[];
   savePx(p);
 }
 
@@ -1748,35 +2058,64 @@ function scoreDetalle(p){
   if(ir>1.5)s++;if(ir>2)s+=2;if(ir>3)s+=2;
   if(tp>0&&tp<50)s+=2;if(al>0&&al<3)s++;if(cr>1)s++;if(cr>2)s+=2;
   if(tg>500)s++;if(tg>1000)s+=2;
-  // Complicaciones activas por dominio (sistema de 9 dominios)
+  // Complicaciones activas por dominio (sistema de 12 dominios, reordenado jul-2026)
   domActivos(p).forEach(function(d){
-    if(d.n===4){
-      if(d.problema==='Disfunción')s+=2;
+    if(d.n===2){ // Función injerto
+      if(d.problema==='Disfunción en estudio')s+=2;
+      else if(d.problema==='Disfunción temprana del injerto')s+=3;
+      else if(d.problema==='Síndrome small for size')s+=5;
+      else if(d.problema==='Falla primaria del injerto')s+=10;
       else if(d.problema==='RAMCT leve')s+=2;
       else if(d.problema==='RAMCT moderado')s+=4;
       else if(d.problema==='RAMCT severo')s+=7;
       else if(d.problema==='Rechazo corticorresistente')s+=7;
+      else if(d.problema==='Rechazo mediado por anticuerpos')s+=6;
       else if(d.problema==='Rechazo crónico')s+=5;
-    } else if(d.n===3){
+      else if(d.problema==='Recurrencia de la enfermedad')s+=4;
+    } else if(d.n===3){ // Complicaciones técnicas
       if(d.problema.indexOf('Vascular')>=0)s+=6;
-      else if(d.problema==='Vía biliar')s+=3;
-      else if(d.problema==='Complicaciones quirúrgicas')s+=3;
-    } else if(d.n===5){
+      else if(d.problema.indexOf('Biliar')>=0)s+=3;
+      else if(d.problema==='Colección'||d.problema==='Perforación'||d.problema==='Oclusión')s+=4;
+    } else if(d.n===4){ // Infecciosas
       if(d.problema==='Infección fúngica')s+=5;
-      else if(d.problema.indexOf('Reactivación')>=0)s+=3;
-      else if(d.problema.indexOf('Fiebre')>=0)s+=2;
-    } else if(d.n===1){
+      else if(d.problema==='Infección viral')s+=3;
+      else if(d.problema==='Infecciones parasitarias')s+=2;
+      else if(d.problema==='Infección bacteriana')s+=2;
+      else if(d.problema==='Colonización / infección de catéter')s+=2;
+      else if(d.problema==='Fiebre en estudio')s+=2;
+    } else if(d.n===5){ // Inmunosupresión
+      if(d.problema.indexOf('tóxica')>=0)s+=3;
+      else if(d.problema==='Variabilidad')s+=2;
+      else s+=1; // Sospecha de inadecuada, Insuficiente
+    } else if(d.n===1){ // Soporte vital
       var nDrogas=d.tratamiento?d.tratamiento.split(', ').length:1;
       if(d.problema==='Hemodinámico')s+=(nDrogas>=2?5:3);
       else if(d.problema==='Respiratorio'){
-        if(d.tratamiento&&d.tratamiento.indexOf('ARM')>=0)s+=5;
+        if(d.tratamiento&&d.tratamiento.indexOf('ECMO')>=0)s+=8;
+        else if(d.tratamiento&&d.tratamiento.indexOf('ARM')>=0)s+=5;
         else if(d.tratamiento&&(d.tratamiento.indexOf('CAFO')>=0||d.tratamiento.indexOf('VNI')>=0))s+=3;
         else s+=1;
       }
-    } else if(d.n===6){
-      s+=(d.problema.indexOf('IRC')>=0?2:1);
-    } else if(d.n===7){
-      s+=(d.problema==='Hemorragia'?5:3);
+      else if(d.problema==='Insuficiencia renal aguda (IRA)')s+=(d.tratamiento&&d.tratamiento.indexOf('CRRT')>=0?4:2);
+      else if(d.problema==='Encefalopatía grado 1-2')s+=2;
+      else if(d.problema==='Encefalopatía grado 3-4')s+=6;
+      else if(d.problema==='Hemorragia activa')s+=4;
+      else if(d.problema==='Derrame pleural / Hemotórax')s+=3;
+    } else if(d.n===6){ // Función renal
+      if(d.problema==='Enfermedad renal crónica')s+=2;
+      else if(d.problema==='Hipertensión arterial')s+=1;
+      else s+=1; // Disfunción en estudio, IRA
+    } else if(d.n===7){ // Hematooncológico
+      if(d.problema==='PTLD'||d.problema==='Linfoma')s+=7;
+      else if(d.problema==='Otros')s+=2;
+      else if(d.problema==='Pancitopenia')s+=3;
+      else s+=1; // Citopenia en estudio, Anemia, Leucopenia, Neutropenia, Trombocitopenia
+    } else if(d.n===8){ // Neurológico
+      if(d.problema==='ACV hemorrágico')s+=5;
+      else if(d.problema==='ACV isquémico')s+=4;
+      else s+=3; // Convulsiones, PRES
+    } else if(d.n===9){ // Metabólico
+      if(d.problema==='Síndrome ascítico-edematoso')s+=3;
     }
   });
   if(s<=4)return{niv:'Evolución favorable',cls:'b-ok',de:Math.max(3,7-Math.floor(dp/5))};
@@ -1842,6 +2181,27 @@ function flush(cb){
   obUpdate();
 }
 
+function toggleImportPanel(){
+  var el=document.getElementById('import-panel');
+  if(el)el.style.display=(el.style.display==='none'||!el.style.display)?'block':'none';
+}
+function importarPacientesJSON(){
+  var ta=document.getElementById('import-json');
+  var status=document.getElementById('import-status');
+  if(!ta)return;
+  var arr;
+  try{arr=JSON.parse(ta.value);}catch(e){if(status)status.textContent='JSON inválido: '+e.message;return;}
+  if(!Array.isArray(arr)){if(status)status.textContent='Tiene que ser una lista [ ] de pacientes.';return;}
+  var n=0;
+  arr.forEach(function(p){
+    if(!p.id)p.id=Date.now()+Math.floor(Math.random()*100000);
+    if(!p.ts)p.ts=Date.now();
+    savePx(p);
+    n++;
+  });
+  if(status)status.textContent=n+' paciente(s) importado(s).';
+  ta.value='';
+}
 function savePx(p){
   dot('sy');
   var data=lload();
@@ -1916,23 +2276,26 @@ function diasParaAlta(p) {
   if (inr > 2) { extra += 7; motivos.push('coagulopatía'); }
   if (cr > 2)  { extra += 7; motivos.push('insuficiencia renal'); }
 
-  var rec = domActivos(p).find(function(d){return d.n===4;});
+  var rec = domActivos(p).find(function(d){return d.n===2;});
   if(rec){
     if(rec.problema==='RAMCT moderado'){extra+=14;motivos.push('rechazo moderado');}
     else if(rec.problema==='RAMCT severo'||rec.problema==='Rechazo corticorresistente'){extra+=30;motivos.push('rechazo severo / corticorresistente');}
     else if(rec.problema==='Rechazo crónico'){extra+=30;motivos.push('rechazo crónico');}
     else if(rec.problema==='RAMCT leve'){extra+=7;motivos.push('rechazo leve');}
-    else if(rec.problema==='Disfunción'){extra+=7;motivos.push('disfunción de injerto');}
+    else if(rec.problema==='Disfunción en estudio'){extra+=7;motivos.push('disfunción de injerto');}
+    else if(rec.problema==='Falla primaria del injerto'){extra+=30;motivos.push('falla primaria del injerto');}
+    else if(rec.problema==='Síndrome small for size'){extra+=14;motivos.push('small for size');}
   }
 
   domActivos(p).filter(function(d){return d.n===3;}).forEach(function(d){
     if(d.problema.indexOf('Vascular')>=0){
       extra += (d.problema.indexOf('arteria')>=0?21:14);
       motivos.push(d.problema.indexOf('arteria')>=0?'trombosis/estenosis arterial':'complicación vascular');
-    } else if(d.problema==='Vía biliar'){ extra+=14; motivos.push('comp. biliar'); }
+    } else if(d.problema.indexOf('Biliar')>=0){ extra+=14; motivos.push('comp. biliar'); }
+    else if(d.problema==='Colección'||d.problema==='Perforación'||d.problema==='Oclusión'){ extra+=10; motivos.push('reintervención quirúrgica'); }
   });
 
-  var infd=domActivos(p).find(function(d){return d.n===5;});
+  var infd=domActivos(p).find(function(d){return d.n===4;});
   if(infd){
     if(infd.problema==='Infección fúngica'){extra+=21;motivos.push('infección fúngica');}
     else {extra+=10;motivos.push('infección activa');}
@@ -1940,6 +2303,14 @@ function diasParaAlta(p) {
 
   var ptldActivo=(p.complicaciones_post||[]).some(function(c){return c.cat==='PTLD';});
   if(ptldActivo){extra+=21;motivos.push('PTLD');}
+
+  var hemOnc=domActivos(p).find(function(d){return d.n===7&&(d.problema==='PTLD'||d.problema==='Linfoma'||d.problema==='Otros'||d.problema==='Pancitopenia');});
+  if(hemOnc){
+    if(hemOnc.problema==='PTLD'&&!ptldActivo){extra+=21;motivos.push('PTLD');}
+    else if(hemOnc.problema==='Linfoma'){extra+=21;motivos.push('linfoma');}
+    else if(hemOnc.problema==='Pancitopenia'){extra+=10;motivos.push('pancitopenia');}
+    else if(hemOnc.problema==='Otros'){extra+=5;motivos.push('patología hematooncológica');}
+  }
 
   if (p.dias_alta_manual !== undefined && p.dias_alta_manual !== null && p.dias_alta_manual !== '') {
     return {
