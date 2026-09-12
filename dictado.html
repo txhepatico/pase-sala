@@ -6,13 +6,18 @@
 <title>Dictado — Pase de Sala</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1efe8;color:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:1rem;}
-.box{background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:1.5rem;max-width:320px;width:100%;text-align:center;}
+.box{background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:1.5rem;max-width:360px;width:100%;text-align:center;}
 .mic{font-size:40px;margin-bottom:.5rem;}
-.estado{font-size:14px;color:#666;margin-bottom:1rem;min-height:40px;line-height:1.4;}
-.transcripcion{background:#f8f7f5;border-radius:8px;padding:.7rem;font-size:14px;margin-bottom:1rem;min-height:20px;color:#1a1a1a;display:none;}
+.mic.on{animation:pulse 1.2s infinite;}
+@keyframes pulse{0%{opacity:1;}50%{opacity:.4;}100%{opacity:1;}}
+.estado{font-size:14px;color:#666;margin-bottom:1rem;line-height:1.4;}
+.transcripcion{background:#f8f7f5;border-radius:8px;padding:.7rem;font-size:14px;margin-bottom:1rem;min-height:20px;max-height:180px;overflow-y:auto;color:#1a1a1a;text-align:left;display:none;}
+.transcripcion .interim{color:#999;font-style:italic;}
 button{background:#185FA5;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;margin:4px;font-family:inherit;}
 button.sec{background:#fff;color:#1a1a1a;border:1px solid #ccc;}
+button.stop{background:#B00020;}
 #acciones{display:none;}
+#btn-terminar{display:none;}
 </style>
 </head>
 <body>
@@ -20,16 +25,24 @@ button.sec{background:#fff;color:#1a1a1a;border:1px solid #ccc;}
   <div class="mic" id="mic-icon">🎤</div>
   <div class="estado" id="estado">Preparando micrófono...</div>
   <div class="transcripcion" id="transcripcion"></div>
+  <button class="stop" id="btn-terminar" onclick="terminar()">🛑 Terminar y revisar</button>
   <div id="acciones">
     <button onclick="confirmar()">✓ Usar esto</button>
-    <button class="sec" onclick="reintentar()">↻ Repetir</button>
+    <button class="sec" onclick="reintentar()">↻ Grabar de nuevo</button>
   </div>
 </div>
 <script>
 var Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-var rec=null, ultimoTexto='';
+var rec=null, transcritoFinal='', escuchando=false;
 
 function setEstado(t){document.getElementById('estado').textContent=t;}
+
+function mostrarTranscripcion(finalTxt, interimTxt){
+  var el=document.getElementById('transcripcion');
+  el.style.display='block';
+  el.innerHTML=(finalTxt||'')+(interimTxt?'<span class="interim"> '+interimTxt+'</span>':'');
+  el.scrollTop=el.scrollHeight;
+}
 
 function enviarYcerrar(texto){
   if(window.opener){
@@ -43,36 +56,69 @@ function iniciar(){
     setEstado('Este navegador no soporta dictado por voz. Probá con Chrome.');
     return;
   }
+  transcritoFinal='';
   document.getElementById('transcripcion').style.display='none';
+  document.getElementById('transcripcion').innerHTML='';
   document.getElementById('acciones').style.display='none';
-  setEstado('🎙️ Escuchando... hablá ahora');
+  document.getElementById('btn-terminar').style.display='inline-block';
+  document.getElementById('mic-icon').classList.add('on');
+  setEstado('🎙️ Escuchando... hablá con pausas normales. Tocá "Terminar" cuando termines de dictar.');
+
   rec=new Recognition();
   rec.lang='es-AR';
-  rec.interimResults=false;
+  rec.continuous=true;
+  rec.interimResults=true;
   rec.maxAlternatives=1;
+  escuchando=true;
+
   rec.onresult=function(e){
-    ultimoTexto=e.results[0][0].transcript;
-    document.getElementById('transcripcion').textContent='"'+ultimoTexto+'"';
-    document.getElementById('transcripcion').style.display='block';
-    document.getElementById('acciones').style.display='block';
-    setEstado('¿Es correcto?');
+    var interim='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var t=e.results[i][0].transcript;
+      if(e.results[i].isFinal){
+        transcritoFinal=(transcritoFinal?transcritoFinal+' ':'')+t.trim();
+      } else {
+        interim+=t;
+      }
+    }
+    mostrarTranscripcion(transcritoFinal, interim);
   };
+
   rec.onerror=function(e){
     if(e.error==='not-allowed'||e.error==='permission-denied'){
+      escuchando=false;
+      document.getElementById('mic-icon').classList.remove('on');
+      document.getElementById('btn-terminar').style.display='none';
       setEstado('Se bloqueó el permiso de micrófono. Habilitalo tocando el candado 🔒 de la barra de direcciones y volvé a intentar.');
-    } else {
-      setEstado('No se entendió. Tocá "Repetir" para intentar de nuevo.');
     }
-    document.getElementById('acciones').style.display='block';
+    // otros errores (ej. "no-speech") no cortan la escucha: onend reintenta solo
   };
+
+  rec.onend=function(){
+    if(escuchando){
+      // Se cortó solo (silencio largo, límite del navegador, etc.) pero el usuario no tocó "Terminar" — seguimos escuchando.
+      try{rec.start();}catch(e){}
+    }
+  };
+
   try{rec.start();}catch(e){setEstado('No se pudo iniciar el micrófono.');}
 }
 
-function confirmar(){enviarYcerrar(ultimoTexto);}
+function terminar(){
+  escuchando=false;
+  document.getElementById('mic-icon').classList.remove('on');
+  document.getElementById('btn-terminar').style.display='none';
+  if(rec){try{rec.stop();}catch(e){}}
+  document.getElementById('acciones').style.display='block';
+  setEstado(transcritoFinal?'¿Es correcto?':'No se entendió nada. Tocá "Grabar de nuevo" para reintentar.');
+  mostrarTranscripcion(transcritoFinal,'');
+}
+
+function confirmar(){enviarYcerrar(transcritoFinal);}
 function reintentar(){iniciar();}
 
 window.onload=iniciar;
-window.onbeforeunload=function(){if(rec){try{rec.stop();}catch(e){}}};
+window.onbeforeunload=function(){escuchando=false;if(rec){try{rec.stop();}catch(e){}}};
 </script>
 </body>
 </html>
